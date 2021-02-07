@@ -206,10 +206,10 @@ if __name__ == '__main__':
     total_dur = train_dur + val_dur + test_dur
     print("Total samples: {} ({:.2f} hours)".format(total_samples, total_dur / 3600))
 
-    train_manifest_path = Path(f'train_{args.id}.csv')
-    val_manifest_path = Path(f'val_{args.id}.csv')
-    test_manifest_path = Path(f'test_{args.id}.csv')
-    labels_path = Path(f'labels_{args.id}.json')
+    train_manifest_path = outdir / Path(f'train_{args.id}.csv')
+    val_manifest_path = outdir / Path(f'val_{args.id}.csv')
+    test_manifest_path = outdir / Path(f'test_{args.id}.csv')
+    labels_path = outdir / Path(f'labels_{args.id}.json')
 
     with train_manifest_path.open(mode='w') as csvfile:
         writer = csv.writer(csvfile)
