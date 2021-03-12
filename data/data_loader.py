@@ -23,7 +23,7 @@ from utils import pad_list, IGNORE_ID
 windows = {'hamming': np.hamming, 'hanning': np.hanning, 'blackman': np.blackman, 'bartlett': np.bartlett}
 
 def load_audio(path, normalize=True):
-    sound, _ = torchaudio.load(path, normalization=normalize)
+    sound, _ = torchaudio.load(path, normalize=normalize)
     sound = sound.numpy().T
     if len(sound.shape) > 1:
         if sound.shape[1] == 1:

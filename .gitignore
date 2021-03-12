@@ -107,7 +107,7 @@ venv.bak/
 .pylintrc
 
 # Saved models and datasets
-/models
+/models*
 /oldmodels
 /results
 train_*.csv
