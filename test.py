@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import torch
 
+from pathlib import Path
 from tqdm import tqdm
 
 from data.data_loader import SpectrogramDataset, AudioDataLoader, BucketingSampler
@@ -45,7 +46,13 @@ if __name__ == '__main__':
         outputs = model.transcribe(inputs, input_sizes)
 
         for i, target in enumerate(targets):
-            reference = label_decoder.decode(target[:target_sizes[i]].tolist())
+            # Avoid decoding the target, but load original uncoded krnseq.
+            # This allows to use different datasets that could be encoded with
+            # a different label encoder than the current one used by the model.
+            # reference = label_decoder.decode(target[:target_sizes[i]].tolist())
+            krnseq_path = Path(filenames[i]).with_suffix('.krnseq')
+            with open(krnseq_path, 'r') as krnseq_file:
+                reference = krnseq_file.read()
             transcript = label_decoder.decode(outputs[i])
             wer, trans_words, ref_words = calculate_wer(transcript, reference, '\t')
             cer, trans_chars, ref_chars = calculate_cer(transcript, reference, '\t')
