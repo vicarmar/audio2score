@@ -289,6 +289,8 @@ class DeepSpeech(nn.Module):
                 if char != 0 and len(string) > 0 and char == string[-1]:
                     continue
                 string.append(char)
+            # Clean up CTC blanks as they are meaningless once transcribed.
+            string = [char for char in string if char != 0]
             transcripts.append(string)
 
         return transcripts
