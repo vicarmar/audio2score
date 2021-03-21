@@ -223,13 +223,14 @@ class SpineInfo(object):
         return spineinfo
 
 class Kern(Humdrum):
-    def __init__(self, path=None, data=None):
+    def __init__(self, path=None, data=None, remove_splits=True):
         super(Kern, self).__init__(path, data)
-
+        
+        self.remove_splits = remove_splits
         self.spines = SpineInfo(self.spine_types)
         self.first_line = 0 
         for i, line in enumerate(self.body):
-            if not line.startswith('*'):
+            if not line.startswith('*') or re.search(r'\*[\^v]', line):
                 self.first_line = i
                 break
             self.spines.update(line)
@@ -239,9 +240,10 @@ class Kern(Humdrum):
         newbody = []
 
         for line in self.body[self.first_line:]:
-            if re.search(r'\*[+x^v]', line):
+            if re.search(r'\*[+x\^v]', line):
                 i = 0
                 remove_spine = False
+                newline = []
                 for item in line.split('\t'):
                     if item.startswith(('*+', '*x')):
                         print('Unsupported variable spines')
@@ -258,6 +260,10 @@ class Kern(Humdrum):
                         else:
                             remove_spine = True
                     i += 1
+                    newline.append(item)
+                if not self.remove_splits:
+                    newbody.append('\t'.join(newline))
+
                 continue
 
             if line.startswith('!'):
@@ -268,13 +274,18 @@ class Kern(Humdrum):
             newline = []
             note_found = False
             grace_note_found = False
+            allowed_spine_types = ['**kern']
+            if not self.remove_splits:
+                allowed_spine_types.append('**split')
+
             for i, item in enumerate(line.split('\t')):
-                if spine_types[i] == '**split':
+                if self.remove_splits and spine_types[i] == '**split':
                     # Remove spline split
                     continue
 
-                if spine_types[i] == '**kern' and not item.startswith(('*', '=')):
-                    item = item.split()[0] # Take the first note of the chord
+                if spine_types[i] in allowed_spine_types and not item.startswith(('*', '=')):
+                    if self.remove_splits:
+                        item = item.split()[0] # Take the first note of the chord
                     item = re.sub(r'[pTtMmWwS$O:]', r'', item) # Remove ornaments
                     if remove_pauses:
                         item = re.sub(r';', r'', item) # Remove pauses
@@ -319,15 +330,61 @@ class Kern(Humdrum):
             header, footer = spines.dump()
 
             i += stride if stride else chunk_size
+
+            final_measurement = False
             if len(measures) - i - 1 < min(chunk_sizes):
                 body = self.body[m_begin:]
-                chunk = Kern(data='\n'.join(header + body + footer))
-                chunks.append(chunk)
-                break
+                final_measurement = True
+            else:
+                body = self.body[m_begin:m_end]
 
-            body = self.body[m_begin:m_end]
+
+            # Fix spine splits
+            if not self.remove_splits:
+                # Fix first line of body.
+                len_spines = len(self.spine_types)
+                if len_spines != len(body[0].split('\t')):
+                    # Get lines splits until len match spines, index is reversed
+                    split_lines = []
+                    lookup_body = self.body[:m_begin]
+
+                    for line in lookup_body[::-1]:
+                        if re.search(r'\*[\^v]', line):
+                            split_items = line.split('\t')
+                            split_lines.append(split_items)
+                            if len(split_items) == len_spines:
+                                break
+                    split_lines.reverse()
+
+                    master_line = [f'{i}' for i in range(len(split_lines[0]))]
+                    for line_items in split_lines:
+                        master_idx = 0
+                        for item_idx, item in enumerate(line_items):
+                            if item == '*^':
+                                value = master_line[master_idx]
+                                master_line[master_idx] = f'{value}a'
+                                master_line.insert(master_idx + 1, f'{value}b')
+                                master_idx += 1
+                            if item == '*v' and line_items[item_idx + 1] == '*v':
+                                master_line[master_idx] = master_line[master_idx].replace('a', '')
+                                master_line.pop(master_idx + 1)
+                                master_idx -= 1
+                            else:
+                                master_idx += 1
+                        
+                    master_line = re.sub(r'([0-9]+a\t[0-9]+b)', r'*^', '\t'.join(master_line))
+                    master_line = re.sub(r'[0-9]+', r'*', master_line)
+                    body.insert(0, master_line)
+
+                # Fix footer.
+                if len(footer[0].split('\t')) != len(body[-1].split('\t')):
+                    footer = ['\t'.join(['*-' for x in body[-1].split('\t')])]
+
             chunk = Kern(data='\n'.join(header + body + footer))
             chunks.append(chunk)
+
+            if final_measurement:
+                break
 
             for line in self.body[m_begin:measures[i]]:
                 if line.startswith('*'):
@@ -336,6 +393,11 @@ class Kern(Humdrum):
         return chunks
 
     def tosequence(self):
+        spine_types = self.spine_types.copy()
+        allowed_spine_types = ['**kern']
+        if not self.remove_splits:
+            allowed_spine_types.append('**split')
+
         krn = []
         for line in self.body[self.first_line:]:
             newline = []
@@ -343,13 +405,36 @@ class Kern(Humdrum):
                 if not re.match(r'^=(\d+|=)[^-]*', line):
                     continue
                 newline.append('=')
+            elif not self.remove_splits and re.search(r'\*[\^v]', line):
+                i = 0
+                remove_spine = False
+                for item in line.split('\t'):
+                    if item == '*^':
+                        spine_types.insert(i, '**kern')
+                        i += 1
+                        spine_types[i] = '**split'
+                    elif item == '*v':
+                        if remove_spine:
+                            spine_types.pop(i)
+                            i -= 1
+                            remove_spine = False
+                        else:
+                            remove_spine = True
+                    i += 1
+                continue
             elif line.startswith(('*', '!')):
                 continue
             else:
-                line = re.sub(r'[^rA-Ga-g0-9.\[_\]#\-;\t]', r'', line) # Remove undefined symbols
+                line = re.sub(r'[^rA-Ga-g0-9.\[_\]#\-;\t ]', r'', line) # Remove undefined symbols
                 for i, item in enumerate(line.split('\t')):
-                    if self.spine_types[i] == '**kern':
-                        newline.append(item)
+                    if spine_types[i] in allowed_spine_types:
+                        # Chords splitting:
+                        if not self.remove_splits and ' ' in item:
+                            chord = item.split()
+                            for note in chord:
+                                newline.append(note)
+                        else:
+                            newline.append(item)
 
             krn.append('\t'.join(newline))
 
