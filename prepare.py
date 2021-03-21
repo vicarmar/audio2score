@@ -15,7 +15,7 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 
 from data.data_loader import load_audio
-from data.humdrum import Kern, Labels, LabelsMulti
+from data.humdrum import Kern, Labels, LabelsMulti, LabelsMulti2
 
 def parseList(string):
     if string and len(string) > 0:
@@ -43,7 +43,9 @@ parser.add_argument('--chunk-sizes', type=parseIntList, help='Select chunk sizes
 parser.add_argument('--test-split', type=float, default=0.3, help='Select train-test split ratio')
 parser.add_argument('--train-stride', type=int, help='Select the stride of overlapped training samples', default=None)
 parser.add_argument('--id', default='manifest', help='Id of output manifest and label files')
-parser.add_argument('--labels-multi', action="store_true", default=False, help="Use multichar labels to reduce sequence size")
+# parser.add_argument('--labels-multi', action="store_true", default=False, help="Use multichar labels to reduce sequence size")
+parser.add_argument('--label-encoder', type=str, default='multi', choices=['simple', 'multi', 'multi2'], help="type of encoder. Choose from 'simple', 'multi', 'multi2'. Use multichar labels to reduce sequence size")
+parser.add_argument('--remove-splits', action="store_true", default=False, help="Clean splits and chords during kern cleaning")
 
 def process_sample(q, samples, args, labels):
     while True:
@@ -52,7 +54,7 @@ def process_sample(q, samples, args, labels):
             break
 
         # Remove grace notes, ornaments, etc...
-        kern = Kern(Path(args.data_dir) / score_path)
+        kern = Kern(Path(args.data_dir) / score_path, remove_splits=args.remove_splits)
         kern.spines.override_instruments(args.instruments)
         try:
             if not kern.clean():
@@ -66,6 +68,8 @@ def process_sample(q, samples, args, labels):
         root_path.mkdir(parents=True, exist_ok=True)
         
         krn_path = Path(args.out_dir) / score_path
+        krn_path_clean = krn_path.with_suffix(f'.clean.krn')
+        kern.save(krn_path_clean)
 
         # Set seed to ensure same chunk sizes and tempo scaling
         np.random.seed(bytearray(score_path.name, 'utf-8'))
@@ -89,7 +93,7 @@ def process_sample(q, samples, args, labels):
                 print(process.stdout)
                 continue
 
-            kern = Kern(data=process.stdout)
+            kern = Kern(data=process.stdout, remove_splits=args.remove_splits)
             kern.save(chunk_path)
 
             audio_path = chunk_path.with_suffix('.flac')
@@ -114,16 +118,20 @@ def process_sample(q, samples, args, labels):
 
             duration = len(y) / args.sample_rate
 
-            krnseq = kern.tosequence()
+            try:
+                krnseq = kern.tosequence()
+            except Exception as e:
+                print(f"Discarded {chunk_path} due to error in kern sequence conversion. Reason {e}")
+                continue
 
             if krnseq is None:
-                #print(f"Discarded {chunk_path} for double dots/sharps/flats")
+                print(f"Discarded {chunk_path} for double dots/sharps/flats")
                 continue
 
             try:
                 seq = labels.encode(krnseq)
             except Exception as e:
-                print(f"Discarded {chunk_path}. Reason: {e}")
+                print(f"Discarded {chunk_path} during label encoding. Reason: {e}")
                 continue
 
             seqlen = labels.ctclen(seq)
@@ -136,7 +144,7 @@ def process_sample(q, samples, args, labels):
                 f.write(pickle.dumps(seq))
 
             if duration > args.max_duration or duration < seqlen * args.min_duration_symbol:
-                #print(f"Sequence too long in {chunk_path} len={seqlen} duration={duration:.2f}")
+                print(f"Sequence too long in {chunk_path} len={seqlen} duration={duration:.2f}")
                 continue
 
             samples.append([str(audio_path), str(seq_path), duration])
@@ -183,7 +191,15 @@ if __name__ == '__main__':
     scores_val = scores_test[:middle]
     scores_test = scores_test[middle:]
 
-    labels = Labels() if not args.labels_multi else LabelsMulti()
+    if args.label_encoder == 'simple':
+        labels = Labels()
+    elif args.label_encoder == 'multi':
+        labels = LabelsMulti()
+    elif args.label_encoder == 'multi2': 
+        labels = LabelsMulti2()
+    else:
+        raise ValueError('Unknown label encoder type.')
+
     if args.num_workers is None:
         args.num_workers = 4
 
@@ -230,7 +246,6 @@ if __name__ == '__main__':
             writer.writerow([x, y])
 
     print("Creating label JSON file with {} symbols".format(len(labels.labels)))
-    print(labels.labels)
     with labels_path.open(mode='w') as jsonfile:
         json.dump(labels.labels, jsonfile)
     

@@ -57,11 +57,17 @@ RUN pip install numpy scikit-learn pandas tqdm cython cffi python-levenshtein li
 RUN pip install torch==1.8.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip list
 
-USER user
 # Install Humdrum extras from source and build it, and add to PATH.
 RUN git clone https://github.com/mangelroman/humextra.git
 RUN cd humextra && make library && make hum2mid && make tiefix && make xml2hum
 ENV PATH="/home/user/humextra/bin:${PATH}"
+
+# CUSTOM PROMPT.
+ENV TERM=xterm-256color
+RUN echo 'export PS1="${debian_chroot:+($debian_chroot)}\[\e[1;32m\]\u@audio2score(\h)\[\e[m\] \[\e[1;36m\]\w\a\[\e[m\]\$ "' >> .bashrc
+
+# Change to user
+USER user
 
 # Cambia al directorio de la aplicación:
 # WORKDIR /app/code
