@@ -58,8 +58,7 @@ class Labels(object): # 38 symbols
         return list(filter(None, [self.labels_map_inv.get(t) for t in tokens]))
 
 class LabelsMulti(object): # 148 symbols
-    def __init__(self, chorales=False):
-
+    def __init__(self, extended=False):
         self.labels = [
             "+", # ctc blank
             "1","1.","2","2.","4","4.","8","8.","16","16.","32","32.","64","64.","3","6","12","24","48","96",
@@ -74,6 +73,11 @@ class LabelsMulti(object): # 148 symbols
             "r", "=", ".", "[", "_", "]", ";", "\t", "\n", 
             "<sos>", "<eos>", # seq2seq delimiters
         ]
+        if extended:
+            self.labels.extend([
+                "128","20","40","176","112"
+                "CCC","CCC#","DDD-","DDD","DDD#","EEE-","EEE","EEE#","FFF-","FFF","FFF#","GGG-","GGG","GGG#","AAA-","AAA","AAA#","BBB-","BBB","CC-",
+            ])
         self.labels_map     = dict([(c, i) for (i, c) in enumerate(self.labels)])
         self.labels_map_inv = dict([(i, c) for (i, c) in enumerate(self.labels)])
 
@@ -103,7 +107,7 @@ class LabelsMulti(object): # 148 symbols
         return list(filter(None, [self.labels_map_inv.get(t) for t in tokens]))
 
 class LabelsMulti2(object): # 9147 symbols
-    def __init__(self):
+    def __init__(self, extended=False):
         durations = ["1","1.","2","2.","4","4.","8","8.","16","16.","32","32.","64","64.","3","6","12","24","48","96"]
         notes = ["BBB#","CC","CC#","DD-","DD","DD#","EE-","EE","EE#","FF-","FF","FF#","GG-","GG","GG#","AA-","AA","AA#","BB-","BB","BB#",
             "C-","C","C#","D-","D","D#","E-","E","E#","F-","F","F#","G-","G","G#","A-","A","A#","B-","B","B#",
@@ -113,6 +117,9 @@ class LabelsMulti2(object): # 9147 symbols
             "ccc-","ccc","ccc#","ddd-","ddd","ddd#","eee-","eee","eee#","fff-","fff","fff#","ggg-","ggg","ggg#","aaa-","aaa","aaa#",
             "bbb-","bbb","bbb#",
             "cccc-","cccc","cccc#","dddd-","dddd","dddd#","eeee-","eeee","eeee#"]
+        if extended:
+            durations.extend(["128","20","40","176","112"])
+            notes.extend(["CCC","CCC#","DDD-","DDD","DDD#","EEE-","EEE","EEE#","FFF-","FFF","FFF#","GGG-","GGG","GGG#","AAA-","AAA","AAA#","BBB-","BBB","CC-", "ffff-","ffff"])
         ties = ["[", "_", "]"]
         self.labels = ['+'] # ctc blank
         for d in durations:
@@ -240,25 +247,32 @@ class Kern(Humdrum):
         newbody = []
 
         for line in self.body[self.first_line:]:
+            if len(line) == 0:
+                continue
             if re.search(r'\*[+x\^v]', line):
                 i = 0
                 remove_spine = False
                 newline = []
+                min_split_counts = 100
                 for item in line.split('\t'):
                     if item.startswith(('*+', '*x')):
                         print('Unsupported variable spines')
                         return False
-                    elif item == '*^':
-                        spine_types.insert(i, '**kern')
+                    if item == '*^':
+                        spine_types.insert(i + 1, f'{spine_types[i]}**split')
                         i += 1
-                        spine_types[i] = '**split'
                     elif item == '*v':
+                        min_split_counts = min(min_split_counts, spine_types[i].count('**split'))
                         if remove_spine:
                             spine_types.pop(i)
                             i -= 1
-                            remove_spine = False
                         else:
                             remove_spine = True
+                    else:
+                        if remove_spine:
+                            # Last was removed: Transform first spine into simpler type.
+                            spine_types[i-1] = f"{spine_types[i-1].replace('**split', '')}{min_split_counts * '**split'}"
+                        remove_spine = False
                     i += 1
                     newline.append(item)
                 if not self.remove_splits:
@@ -267,23 +281,30 @@ class Kern(Humdrum):
                 continue
 
             if line.startswith('!'):
-                newbody.append(line)
+                # Support for local comments (one per spine starting with '!').
+                if self.remove_splits:
+                    newline = []
+                    for i, item in enumerate(line.split('\t')):
+                        if spine_types[i].endswith('**split'):
+                            # Remove spline split
+                            continue
+                        newline.append(item)
+                    newbody.append('\t'.join(newline))
+                else:
+                    newbody.append(line)
                 continue
 
             # Remove unwanted symbols
             newline = []
             note_found = False
             grace_note_found = False
-            allowed_spine_types = ['**kern']
-            if not self.remove_splits:
-                allowed_spine_types.append('**split')
 
             for i, item in enumerate(line.split('\t')):
-                if self.remove_splits and spine_types[i] == '**split':
+                if self.remove_splits and spine_types[i].endswith('**split'):
                     # Remove spline split
                     continue
 
-                if spine_types[i] in allowed_spine_types and not item.startswith(('*', '=')):
+                if spine_types[i].startswith('**kern') and not item.startswith(('*', '=')):
                     if self.remove_splits:
                         item = item.split()[0] # Take the first note of the chord
                     item = re.sub(r'[pTtMmWwS$O:]', r'', item) # Remove ornaments
@@ -291,6 +312,7 @@ class Kern(Humdrum):
                         item = re.sub(r';', r'', item) # Remove pauses
                     item = re.sub(r'[JKkL\\/]', r'', item) # Remove beaming and stems
                     item = re.sub(r'[(){}xXyY&]', r'', item) # Remove slurs, phrases, elisions and editorial marks
+                    item = re.sub(r'(\d*\.*r)(.*)', r'\1', item)  # Remove the rests line position.
                     if re.search('[qQP]', item):
                         grace_note_found = True
                     elif re.search('[A-Ga-g]', item):
@@ -338,7 +360,6 @@ class Kern(Humdrum):
             else:
                 body = self.body[m_begin:m_end]
 
-
             # Fix spine splits
             if not self.remove_splits:
                 # Fix first line of body.
@@ -349,36 +370,24 @@ class Kern(Humdrum):
                     lookup_body = self.body[:m_begin]
 
                     for line in lookup_body[::-1]:
-                        if re.search(r'\*[\^v]', line):
-                            split_items = line.split('\t')
-                            split_lines.append(split_items)
-                            if len(split_items) == len_spines:
+                        # Instead of updating the spines, just insert all 
+                        # modifications after the original header
+                        # if re.search(r'\*[\^v]', line):
+                        if re.search(r'\*|:$', line):
+                            split_lines.append(line)
+                            if len(line.split('\t')) == len_spines:
                                 break
-                    split_lines.reverse()
+                    # Insert all split lines in correct order:
+                    for split_line in split_lines:
+                        body.insert(0, split_line)
 
-                    master_line = [f'{i}' for i in range(len(split_lines[0]))]
-                    for line_items in split_lines:
-                        master_idx = 0
-                        for item_idx, item in enumerate(line_items):
-                            if item == '*^':
-                                value = master_line[master_idx]
-                                master_line[master_idx] = f'{value}a'
-                                master_line.insert(master_idx + 1, f'{value}b')
-                                master_idx += 1
-                            if item == '*v' and line_items[item_idx + 1] == '*v':
-                                master_line[master_idx] = master_line[master_idx].replace('a', '')
-                                master_line.pop(master_idx + 1)
-                                master_idx -= 1
-                            else:
-                                master_idx += 1
-                        
-                    master_line = re.sub(r'([0-9]+a\t[0-9]+b)', r'*^', '\t'.join(master_line))
-                    master_line = re.sub(r'[0-9]+', r'*', master_line)
-                    body.insert(0, master_line)
+                # Fix footer. Skip comments.
+                last = -1
+                while body[last].startswith('!'):
+                    last -= 1
 
-                # Fix footer.
-                if len(footer[0].split('\t')) != len(body[-1].split('\t')):
-                    footer = ['\t'.join(['*-' for x in body[-1].split('\t')])]
+                if len(footer[0].split('\t')) != len(body[last].split('\t')):
+                    footer = ['\t'.join(['*-' for x in body[last].split('\t')])]
 
             chunk = Kern(data='\n'.join(header + body + footer))
             chunks.append(chunk)
@@ -386,18 +395,17 @@ class Kern(Humdrum):
             if final_measurement:
                 break
 
-            for line in self.body[m_begin:measures[i]]:
-                if line.startswith('*'):
-                    spines.update(line)
+            # If not removing splits, no need to update the spines for the 
+            # next chunks as all split lines and marks are added after header.
+            if self.remove_splits:
+                for line in self.body[m_begin:measures[i]]:
+                    if line.startswith('*'):
+                        spines.update(line)
 
         return chunks
 
     def tosequence(self):
         spine_types = self.spine_types.copy()
-        allowed_spine_types = ['**kern']
-        if not self.remove_splits:
-            allowed_spine_types.append('**split')
-
         krn = []
         for line in self.body[self.first_line:]:
             newline = []
@@ -410,16 +418,16 @@ class Kern(Humdrum):
                 remove_spine = False
                 for item in line.split('\t'):
                     if item == '*^':
-                        spine_types.insert(i, '**kern')
+                        spine_types.insert(i + 1, '**split')
                         i += 1
-                        spine_types[i] = '**split'
-                    elif item == '*v':
+                    elif item == '*v':                       
                         if remove_spine:
                             spine_types.pop(i)
                             i -= 1
-                            remove_spine = False
                         else:
                             remove_spine = True
+                    else:                       
+                        remove_spine = False
                     i += 1
                 continue
             elif line.startswith(('*', '!')):
@@ -427,7 +435,7 @@ class Kern(Humdrum):
             else:
                 line = re.sub(r'[^rA-Ga-g0-9.\[_\]#\-;\t ]', r'', line) # Remove undefined symbols
                 for i, item in enumerate(line.split('\t')):
-                    if spine_types[i] in allowed_spine_types:
+                    if spine_types[i].startswith('**kern'):
                         # Chords splitting:
                         if not self.remove_splits and ' ' in item:
                             chord = item.split()
