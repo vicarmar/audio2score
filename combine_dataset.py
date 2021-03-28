@@ -1,12 +1,14 @@
 import argparse
+import logging
 from pathlib import Path
 
 import pandas as pd
 
+from data.data_loader import load_audio
 from utils import config_logger
 
 
-def combine_datasets(data_dir, dataset_config):
+def combine_datasets(data_dir, dataset_config, log_durations=False):
     logger = config_logger('combine_datasets', console_level='INFO')
 
     if not isinstance(data_dir, Path):
@@ -38,11 +40,17 @@ def combine_datasets(data_dir, dataset_config):
         combined_csv = pd.concat([
             pd.read_csv(f, header=None).assign(filename=f.name)
             for f in all_filenames
-        ])
-        logger.info(combined_csv.groupby('filename')[0].count())
+        ]).rename(columns={
+            0: "audio",
+            1: "seq"
+        })
+        logger.info(combined_csv.groupby('filename')['audio'].count())
         logger.info(
-            f'Combined partition {dataset_partition}: {combined_csv[0].count()}'
+            f"Combined partition {dataset_partition}: {combined_csv['audio'].count()}"
         )
+
+        if log_durations:
+            compute_durations(combined_csv['audio'].tolist())
 
         # export to csv
         outpath = data_dir / f'{dataset_partition}_{group}_{dataset_config}.{extension}'
@@ -51,6 +59,26 @@ def combine_datasets(data_dir, dataset_config):
                                                      index=False,
                                                      header=False,
                                                      encoding='utf-8-sig')
+
+
+def compute_durations(file_list, sample_rate=22050):
+    logger = logging.getLogger('combine_datasets')
+
+    total_duration = 0
+    audio_errors = 0
+    for file_name in file_list:
+        try:
+            y = load_audio(str(file_name))
+        except Exception as e:
+            logger.exception(
+                f"Exception while loading {file_name} audio. Reason: {e}")
+            audio_errors += 1
+            continue
+
+        total_duration += len(y) / sample_rate
+
+    logger.info(f'Total duration: {total_duration/60/60} hours.')
+    logger.info(f'Found {audio_errors} errors during loading.')
 
 
 if __name__ == '__main__':
@@ -76,8 +104,15 @@ if __name__ == '__main__':
         action="store_true",
         default=False,
         help="If --remove-splits was used or not when preparing the data")
+    parser.add_argument('-dur',
+                        '--log-durations',
+                        action="store_true",
+                        default=False,
+                        help="Log the audio durations")
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir)
     dataset_config = f'{args.label_encoder}{"_splits" if not args.remove_splits else ""}'
-    combine_datasets(data_dir, dataset_config)
+    combine_datasets(data_dir,
+                     dataset_config,
+                     log_durations=args.log_durations)
