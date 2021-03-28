@@ -115,7 +115,7 @@ if __name__ == '__main__':
     ler = 100 * float(total_ler) / num_labels
 
     logger.info(
-        f'Test Summary \tAverage WER {wer:.3f}\tAverage CER {cer:.3f}\tAverage LER {cer:.3f}'
+        f'Test Summary \tAverage WER {wer:.3f}\tAverage CER {cer:.3f}\tAverage LER {ler:.3f}'
     )
 
     model_id = Path(args.model_path).name
@@ -126,5 +126,5 @@ if __name__ == '__main__':
         if not file_exists:
             wr.writerow(['Dataset', 'Model', 'WER', 'CER', 'LER'])
         wr.writerow([
-            manifest_name, model_id, f'{wer:.3f}', f'{cer:.3f}', f'{cer:.3f}'
+            manifest_name, model_id, f'{wer:.3f}', f'{cer:.3f}', f'{ler:.3f}'
         ])
