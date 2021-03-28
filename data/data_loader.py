@@ -1,26 +1,26 @@
+import math
 import os
-import subprocess
 import pickle
+import subprocess
 from tempfile import NamedTemporaryFile
-from pathlib import Path
-
-from torch.distributed import get_rank
-from torch.distributed import get_world_size
-from torch.utils.data.sampler import Sampler
 
 import librosa
 import madmom
 import numpy as np
-import scipy.signal
 import torch
 import torchaudio
-import math
-from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
+from torch.distributed import get_rank, get_world_size
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.sampler import Sampler
+from utils import IGNORE_ID, pad_list
 
-from utils import pad_list, IGNORE_ID
+windows = {
+    'hamming': np.hamming,
+    'hanning': np.hanning,
+    'blackman': np.blackman,
+    'bartlett': np.bartlett
+}
 
-windows = {'hamming': np.hamming, 'hanning': np.hanning, 'blackman': np.blackman, 'bartlett': np.bartlett}
 
 def load_audio(path, normalize=True):
     sound, _ = torchaudio.load(path, normalize=normalize)
@@ -50,10 +50,7 @@ class AudioParser(object):
 
 
 class NoiseInjection(object):
-    def __init__(self,
-                 path=None,
-                 sample_rate=16000,
-                 noise_levels=(0, 0.5)):
+    def __init__(self, path=None, sample_rate=16000, noise_levels=(0, 0.5)):
         """
         Adds noise to an input signal with specific SNR. Higher the noise level, the more noise added.
         Modified code from https://github.com/willfrey/audio/blob/master/torchaudio/transforms.py
@@ -75,7 +72,8 @@ class NoiseInjection(object):
         data_len = len(data) / self.sample_rate
         noise_start = np.random.rand() * (noise_len - data_len)
         noise_end = noise_start + data_len
-        noise_dst = audio_with_sox(noise_path, self.sample_rate, noise_start, noise_end)
+        noise_dst = audio_with_sox(noise_path, self.sample_rate, noise_start,
+                                   noise_end)
         assert len(data) == len(noise_dst)
         noise_energy = np.sqrt(noise_dst.dot(noise_dst) / noise_dst.size)
         data_energy = np.sqrt(data.dot(data) / data.size)
@@ -102,21 +100,25 @@ class SpectrogramParser(AudioParser):
         self.bins_per_octave = audio_conf.getint('bins_per_octave')
         self.normalize = audio_conf.getboolean('normalize', True)
         self.augment = audio_conf.getboolean('augment', False)
-        self.noiseInjector = NoiseInjection(audio_conf['noise_dir'], self.sample_rate,
-                                            audio_conf['noise_levels']) if audio_conf.get('noise_dir') is not None else None
+        self.noiseInjector = NoiseInjection(
+            audio_conf['noise_dir'], self.sample_rate,
+            audio_conf['noise_levels']) if audio_conf.get(
+                'noise_dir') is not None else None
         self.noise_prob = audio_conf.get('noise_prob')
         self.n_fft = int(self.sample_rate * self.window_size)
         self.hop_length = int(self.sample_rate * self.window_stride)
 
         self.fmin = librosa.note_to_hz(self.min_note)
         self.fmax = self.fmin * (2**self.num_octaves)
-        bin_freqs = madmom.audio.stft.fft_frequencies(num_fft_bins=self.n_fft // 2, sample_rate=self.sample_rate)
-        self.fb = madmom.audio.filters.LogarithmicFilterbank(bin_freqs,
-                                                             unique_filters=False,
-                                                             norm_filters=True,
-                                                             num_bands=self.bins_per_octave,
-                                                             fmin=self.fmin,
-                                                             fmax=self.fmax)
+        bin_freqs = madmom.audio.stft.fft_frequencies(
+            num_fft_bins=self.n_fft // 2, sample_rate=self.sample_rate)
+        self.fb = madmom.audio.filters.LogarithmicFilterbank(
+            bin_freqs,
+            unique_filters=False,
+            norm_filters=True,
+            num_bands=self.bins_per_octave,
+            fmin=self.fmin,
+            fmax=self.fmax)
 
     def parse_audio(self, audio_path):
         if self.augment:
@@ -129,17 +131,30 @@ class SpectrogramParser(AudioParser):
                 y = self.noiseInjector.inject_noise(y)
         # Build spectrogram
         if self.input_format == 'stft':
-            fs = madmom.audio.signal.FramedSignal(y, sample_rate=self.sample_rate, frame_size=self.n_fft, hop_size=self.hop_length)
-            spect = madmom.audio.spectrogram.Spectrogram(fs, window=self.window)
+            fs = madmom.audio.signal.FramedSignal(y,
+                                                  sample_rate=self.sample_rate,
+                                                  frame_size=self.n_fft,
+                                                  hop_size=self.hop_length)
+            spect = madmom.audio.spectrogram.Spectrogram(fs,
+                                                         window=self.window)
         elif self.input_format == 'cqt':
-            S = librosa.cqt(y, sr=self.sample_rate, fmin=self.fmin, n_bins=self.num_octaves * self.bins_per_octave,
-                            bins_per_octave=self.bins_per_octave, hop_length=self.hop_length, window=self.window)
+            S = librosa.cqt(y,
+                            sr=self.sample_rate,
+                            fmin=self.fmin,
+                            n_bins=self.num_octaves * self.bins_per_octave,
+                            bins_per_octave=self.bins_per_octave,
+                            hop_length=self.hop_length,
+                            window=self.window)
             spect = np.abs(S)
             spect = spect.astype(np.float32)
-            spect = spect.T # TxH
+            spect = spect.T  # TxH
         elif self.input_format == 'log':
-            fs = madmom.audio.signal.FramedSignal(y, sample_rate=self.sample_rate, frame_size=self.n_fft, hop_size=self.hop_length)
-            spect = madmom.audio.spectrogram.FilteredSpectrogram(fs, window=self.window, filterbank=self.fb)
+            fs = madmom.audio.signal.FramedSignal(y,
+                                                  sample_rate=self.sample_rate,
+                                                  frame_size=self.n_fft,
+                                                  hop_size=self.hop_length)
+            spect = madmom.audio.spectrogram.FilteredSpectrogram(
+                fs, window=self.window, filterbank=self.fb)
 
         # S = log(S+1)
         spect = np.log1p(spect)
@@ -231,7 +246,9 @@ class BucketingSampler(Sampler):
         super(BucketingSampler, self).__init__(data_source)
         self.data_source = data_source
         ids = list(range(0, len(data_source)))
-        self.bins = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+        self.bins = [
+            ids[i:i + batch_size] for i in range(0, len(ids), batch_size)
+        ]
 
     def __iter__(self):
         for ids in self.bins:
@@ -245,7 +262,11 @@ class BucketingSampler(Sampler):
 
 
 class DistributedBucketingSampler(Sampler):
-    def __init__(self, data_source, batch_size=1, num_replicas=None, rank=None):
+    def __init__(self,
+                 data_source,
+                 batch_size=1,
+                 num_replicas=None,
+                 rank=None):
         """
         Samples batches assuming they are in order of size to batch similarly sized samples together.
         """
@@ -257,10 +278,14 @@ class DistributedBucketingSampler(Sampler):
         self.data_source = data_source
         self.ids = list(range(0, len(data_source)))
         self.batch_size = batch_size
-        self.bins = [self.ids[i:i + batch_size] for i in range(0, len(self.ids), batch_size)]
+        self.bins = [
+            self.ids[i:i + batch_size]
+            for i in range(0, len(self.ids), batch_size)
+        ]
         self.num_replicas = num_replicas
         self.rank = rank
-        self.num_samples = int(math.ceil(len(self.bins) * 1.0 / self.num_replicas))
+        self.num_samples = int(
+            math.ceil(len(self.bins) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
@@ -268,7 +293,8 @@ class DistributedBucketingSampler(Sampler):
         # add extra samples to make it evenly divisible
         bins = self.bins + self.bins[:(self.total_size - len(self.bins))]
         assert len(bins) == self.total_size
-        samples = bins[offset::self.num_replicas]  # Get every Nth bin, starting from rank
+        samples = bins[
+            offset::self.num_replicas]  # Get every Nth bin, starting from rank
         return iter(samples)
 
     def __len__(self):
@@ -283,7 +309,8 @@ class DistributedBucketingSampler(Sampler):
 
 
 def get_audio_length(path):
-    output = subprocess.check_output(['soxi -D \"%s\"' % path.strip()], shell=True)
+    output = subprocess.check_output(['soxi -D \"%s\"' % path.strip()],
+                                     shell=True)
     return float(output)
 
 
@@ -293,9 +320,8 @@ def audio_with_sox(path, sample_rate, start_time, end_time):
     """
     with NamedTemporaryFile(suffix=".wav") as tar_file:
         tar_filename = tar_file.name
-        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} trim {} ={} >/dev/null 2>&1".format(path, sample_rate,
-                                                                                               tar_filename, start_time,
-                                                                                               end_time)
+        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} trim {} ={} >/dev/null 2>&1".format(
+            path, sample_rate, tar_filename, start_time, end_time)
         os.system(sox_params)
         y = load_audio(tar_filename)
         return y
@@ -307,16 +333,19 @@ def augment_audio_with_sox(path, sample_rate, tempo, gain):
     """
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
-        sox_augment_params = ["tempo", "{:.3f}".format(tempo)] #, "gain", "{:.3f}".format(gain)]
-        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} {} >/dev/null 2>&1".format(path, sample_rate,
-                                                                                      augmented_filename,
-                                                                                      " ".join(sox_augment_params))
+        sox_augment_params = ["tempo", "{:.3f}".format(tempo)
+                              ]  # , "gain", "{:.3f}".format(gain)]
+        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} {} >/dev/null 2>&1".format(
+            path, sample_rate, augmented_filename,
+            " ".join(sox_augment_params))
         os.system(sox_params)
         y = load_audio(augmented_filename)
         return y
 
 
-def load_randomly_augmented_audio(path, sample_rate=22050, tempo_range=(0.8, 1.2),
+def load_randomly_augmented_audio(path,
+                                  sample_rate=22050,
+                                  tempo_range=(0.8, 1.2),
                                   gain_range=(0, 0)):
     """
     Picks tempo and gain uniformly, applies it to the utterance by using sox utility.
@@ -326,6 +355,8 @@ def load_randomly_augmented_audio(path, sample_rate=22050, tempo_range=(0.8, 1.2
     tempo_value = np.random.uniform(low=low_tempo, high=high_tempo)
     low_gain, high_gain = gain_range
     gain_value = np.random.uniform(low=low_gain, high=high_gain)
-    audio = augment_audio_with_sox(path=path, sample_rate=sample_rate,
-                                   tempo=tempo_value, gain=gain_value)
+    audio = augment_audio_with_sox(path=path,
+                                   sample_rate=sample_rate,
+                                   tempo=tempo_value,
+                                   gain=gain_value)
     return audio

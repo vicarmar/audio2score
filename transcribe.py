@@ -1,15 +1,21 @@
-import os
 import argparse
 
 import torch
 
 from data.data_loader import SpectrogramParser
-from utils import load_model, LabelDecoder
+from utils import LabelDecoder, load_model
 
 parser = argparse.ArgumentParser(description='DeepSpeech transcription')
-parser.add_argument('--cuda', action="store_true", default=False, help='Use cuda to test model')
-parser.add_argument('--model-path', help='Path to model file created by training', required=True)
-parser.add_argument('--audio-path', help='Audio file to predict on', required=True)
+parser.add_argument('--cuda',
+                    action="store_true",
+                    default=False,
+                    help='Use cuda to test model')
+parser.add_argument('--model-path',
+                    help='Path to model file created by training',
+                    required=True)
+parser.add_argument('--audio-path',
+                    help='Audio file to predict on',
+                    required=True)
 args = parser.parse_args()
 
 if __name__ == '__main__':

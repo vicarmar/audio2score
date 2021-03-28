@@ -1,8 +1,8 @@
 import torch
 
+
 class Loss(object):
     """A simple wrapper class for loss calculation"""
-
     def __init__(self, model, device):
         self.model = model
         self.device = device
@@ -12,7 +12,7 @@ class Loss(object):
         """Calculate CTC loss.
         Args:
             logits: N x T x C, score before softmax
-            logits_sizes: number of timesteps of logits 
+            logits_sizes: number of timesteps of logits
             targets: N x T
             target_sizes: number of timesteps of targets
         """
@@ -24,7 +24,7 @@ class Loss(object):
         logits, logit_sizes = self.model(inputs, input_sizes)
         out = logits.transpose(0, 1)  # TxNxC
         out = out.log_softmax(-1)
-    
+
         out = out.float()  # ensure float32 for loss
         loss = self.criterion(out, targets, logit_sizes, target_sizes)
         loss = loss / logits.size(0)  # average the loss by minibatch
