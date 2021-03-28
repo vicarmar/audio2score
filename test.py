@@ -1,4 +1,6 @@
 import argparse
+import os
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -7,7 +9,7 @@ from tqdm import tqdm
 from data.data_loader import (AudioDataLoader, BucketingSampler,
                               SpectrogramDataset)
 from utils import (LabelDecoder, calculate_cer, calculate_ler, calculate_wer,
-                   load_model)
+                   config_logger, load_model)
 
 parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 parser.add_argument('--cuda',
@@ -30,7 +32,7 @@ parser.add_argument('--num-workers',
                     help='Number of workers used in dataloading')
 parser.add_argument('--verbose',
                     action="store_true",
-                    help="print out decoded output and error of each sample")
+                    help="logger.info out decoded output and error of each sample")
 parser.add_argument('--output-path',
                     default=None,
                     type=str,
@@ -38,6 +40,11 @@ parser.add_argument('--output-path',
 args = parser.parse_args()
 
 if __name__ == '__main__':
+    save_folder = os.path.dirname(args.model_path)
+    test_job = f"train_{Path(args.model_path).with_suffix('.log').name}"
+    log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{test_job}'
+    logger = config_logger('test', log_file=log_file)
+
     torch.set_grad_enabled(False)
     model, _ = load_model(args.model_path)
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -88,24 +95,24 @@ if __name__ == '__main__':
             num_labels += ref_labels
 
             if args.verbose:
-                print("File:", filenames[i])
-                print("WER:", float(wer) / ref_words)
-                print("CER:", float(cer) / ref_chars)
-                print("LER:", float(ler) / ref_labels)
-                print(
+                logger.info("File:", filenames[i])
+                logger.info("WER:", float(wer) / ref_words)
+                logger.info("CER:", float(cer) / ref_chars)
+                logger.info("LER:", float(ler) / ref_labels)
+                logger.info(
                     "========================================================= REFERENCE:"
                 )
-                print(reference)
-                print(
+                logger.info(reference)
+                logger.info(
                     "========================================================= HYPOTHESIS:"
                 )
-                print(transcript)
-                print("")
+                logger.info(transcript)
+                logger.info("")
 
     wer = 100 * float(total_wer) / num_words
     cer = 100 * float(total_cer) / num_chars
     ler = 100 * float(total_ler) / num_labels
 
-    print(
+    logger.info(
         f'Test Summary \tAverage WER {wer:.3f}\tAverage CER {cer:.3f}\tAverage LER {ler:.3f}'
     )
