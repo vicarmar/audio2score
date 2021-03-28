@@ -244,6 +244,7 @@ class Kern(Humdrum):
 
     def clean(self, remove_pauses=True):
         spine_types = self.spine_types.copy()
+        base_spine_len = len(spine_types)
         newbody = []
 
         for line in self.body[self.first_line:]:
@@ -284,8 +285,9 @@ class Kern(Humdrum):
                 # Support for local comments (one per spine starting with '!').
                 if self.remove_splits:
                     newline = []
-                    for i, item in enumerate(line.split('\t')):
-                        if spine_types[i].endswith('**split'):
+                    items = line.split('\t')
+                    for i, item in enumerate(items):
+                        if spine_types[i].endswith('**split') and base_spine_len < len(items):
                             # Remove spline split
                             continue
                         newline.append(item)
@@ -299,8 +301,11 @@ class Kern(Humdrum):
             note_found = False
             grace_note_found = False
 
-            for i, item in enumerate(line.split('\t')):
-                if self.remove_splits and spine_types[i].endswith('**split'):
+            items = line.split('\t')
+            for i, item in enumerate(items):
+                if self.remove_splits and spine_types[i].endswith('**split') \
+                        and base_spine_len < len(items):
+                    # print(f'Discarding item! {line}: {item}')
                     # Remove spline split
                     continue
 
