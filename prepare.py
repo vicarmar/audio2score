@@ -315,11 +315,9 @@ if __name__ == '__main__':
 
     # Logging config.
     log_file = outdir / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}_{data_prep_job}.log'  # noqa E501
-    config_logger('data_prep', console_level='ERROR', log_file=log_file)
+    logger = config_logger('data_prep', console_level='ERROR', log_file=log_file)
 
     # Main execution.
-    logger = logging.getLogger('data_prep')
-
     logger.info("Preprocessing humdrum data...")
     root = Path(args.data_dir)
     scores = sorted([x.relative_to(root) for x in root.rglob('*.krn')])

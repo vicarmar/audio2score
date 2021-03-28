@@ -2,7 +2,6 @@ import argparse
 import configparser
 import csv
 import json
-import logging
 import os
 import random
 import time
@@ -97,11 +96,9 @@ if __name__ == '__main__':
     # Logging config.
     train_job = f"train_{Path(args.model_path).with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{train_job}'
-    config_logger('train', log_file=log_file)
+    logger = config_logger('train', log_file=log_file)
 
     # Main execution.
-    logger = logging.getLogger('train')
-
     # Get train config.
     config.read(args.config_path)
     model_name = config['train']['model']

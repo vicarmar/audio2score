@@ -6,7 +6,10 @@ import torch
 IGNORE_ID = -1
 
 
-def config_logger(name, console_level='INFO', log_file=None, file_level='INFO'):
+def config_logger(name,
+                  console_level='INFO',
+                  log_file=None,
+                  file_level='INFO'):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
@@ -22,6 +25,8 @@ def config_logger(name, console_level='INFO', log_file=None, file_level='INFO'):
     console_handler.setLevel(console_level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
+
+    return logger
 
 
 def pad_list(xs, pad_value):
