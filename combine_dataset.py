@@ -45,7 +45,7 @@ def combine_datasets(data_dir, dataset_config, sample_rate=22050):
         })
         logger.info(combined_csv.groupby('filename')['audio'].count())
         logger.info(
-            f"Combined partition {dataset_partition}: {combined_csv['audio'].count()}"
+            f"Combined partition {dataset_partition}: {combined_csv['audio'].count()} samples."
         )
 
         durations = []
@@ -78,7 +78,7 @@ def combine_datasets(data_dir, dataset_config, sample_rate=22050):
                           axis=1).to_csv(outpath,
                                          index=False,
                                          header=False,
-                                         encoding='utf-8-sig')
+                                         encoding='iso-8859-1')
 
 
 if __name__ == '__main__':
