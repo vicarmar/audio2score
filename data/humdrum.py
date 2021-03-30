@@ -467,17 +467,26 @@ class Kern(Humdrum):
             elif not self.remove_splits and re.search(r'\*[\^v]', line):
                 i = 0
                 remove_spine = False
+                min_split_counts = 100
                 for item in line.split('\t'):
                     if item == '*^':
-                        spine_types.insert(i + 1, '**split')
+                        spine_types.insert(i + 1, f'{spine_types[i]}**split')
                         i += 1
                     elif item == '*v':
+                        min_split_counts = min(min_split_counts,
+                                               spine_types[i].count('**split'))
                         if remove_spine:
                             spine_types.pop(i)
                             i -= 1
                         else:
                             remove_spine = True
                     else:
+                        if remove_spine:
+                            # Last was removed:
+                            # Transform first spine into simpler type.
+                            spine_types[i - 1] = (
+                                f"{spine_types[i-1].replace('**split', '')}"
+                                f"{min_split_counts * '**split'}")
                         remove_spine = False
                     i += 1
                 continue
