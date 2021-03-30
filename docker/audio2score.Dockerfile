@@ -62,6 +62,10 @@ RUN git clone https://github.com/mangelroman/humextra.git
 RUN cd humextra && make library && make hum2mid && make tiefix && make xml2hum
 ENV PATH="/home/user/humextra/bin:${PATH}"
 
+RUN git clone https://github.com/humdrum-tools/humdrum
+RUN cd humdrum && make bin && make install
+ENV PATH="/home/user/humdrum/bin:${PATH}"
+
 # CUSTOM PROMPT.
 ENV TERM=xterm-256color
 RUN echo 'export PS1="${debian_chroot:+($debian_chroot)}\[\e[1;32m\]\u@audio2score(\h)\[\e[m\] \[\e[1;36m\]\w\a\[\e[m\]\$ "' >> .bashrc
