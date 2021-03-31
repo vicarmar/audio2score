@@ -7,19 +7,17 @@ from data.data_loader import load_audio
 from utils import config_logger
 
 
-def combine_datasets(data_dir, dataset_config, sample_rate=22050):
+def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050):
     logger = config_logger('combine_datasets', console_level='INFO')
 
     if not isinstance(data_dir, Path):
         data_dir = Path(data_dir)
 
-    group = data_dir.name
-
     # Label file must be the same. Just make a copy and rename.
     labels_path = [
         i for i in data_dir.rglob(f'*{dataset_config}/labels*.json')
     ][0]
-    outpath = data_dir / f'labels_{group}_{dataset_config}.json'
+    outpath = data_dir / f'labels_{tag}_{dataset_config}.json'
     logger.info(f'Saving encoder labels to {outpath}')
     outpath.write_text(labels_path.read_text())
 
@@ -72,7 +70,7 @@ def combine_datasets(data_dir, dataset_config, sample_rate=22050):
         logger.info(f'Found {audio_errors} errors during loading.')
 
         # export to csv
-        outpath = data_dir / f'{dataset_partition}_{group}_{dataset_config}.{extension}'
+        outpath = data_dir / f'{dataset_partition}_{tag}_{dataset_config}.{extension}'
         logger.info(f'Saving to {outpath}')
         combined_csv.drop(['filename', 'duration'],
                           axis=1).to_csv(outpath,
@@ -88,6 +86,10 @@ if __name__ == '__main__':
                         '--data-dir',
                         metavar='DIR',
                         help='path to data',
+                        required=True)
+    parser.add_argument('-id',
+                        '--id',
+                        help='Id tag',
                         required=True)
     parser.add_argument(
         '-le',
@@ -108,4 +110,4 @@ if __name__ == '__main__':
 
     data_dir = Path(args.data_dir)
     dataset_config = f'{args.label_encoder}{"_splits" if not args.remove_splits else ""}'
-    combine_datasets(data_dir, dataset_config)
+    combine_datasets(data_dir, args.id, dataset_config)
