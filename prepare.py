@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from data.data_loader import load_audio
-from data.humdrum import Kern, Labels, LabelsMulti, LabelsMulti2
+from data.humdrum import Kern, Labels, LabelsMultiple, LabelsSingle
 from utils import config_logger
 
 
@@ -299,9 +299,10 @@ if __name__ == '__main__':
         '--label-encoder',
         type=str,
         default='multi',
-        choices=['simple', 'multi', 'multi_ext', 'multi2', 'multi2_ext'],
-        help="type of encoder. Choose from 'simple', 'multi', 'multi_ext', "
-        "'multi2', 'multi2_ext'. Use multichar labels to reduce sequence size")
+        choices=['simple', 'multi', 'multi_ext', 'single', 'single_ext'],
+        help="Type of encoder that was used. Choose from 'simple', 'multi', "
+        "'multi_ext', 'single', 'single_ext'. Use single symbol labels to reduce sequence size"
+    )
     parser.add_argument('--remove-splits',
                         action="store_true",
                         default=False,
@@ -335,13 +336,13 @@ if __name__ == '__main__':
     if args.label_encoder == 'simple':
         labels = Labels()
     elif args.label_encoder == 'multi':
-        labels = LabelsMulti()
+        labels = LabelsMultiple()
     elif args.label_encoder == 'multi_ext':
-        labels = LabelsMulti(extended=True)
-    elif args.label_encoder == 'multi2':
-        labels = LabelsMulti2()
-    elif args.label_encoder == 'multi2_ext':
-        labels = LabelsMulti2(extended=True)
+        labels = LabelsMultiple(extended=True)
+    elif args.label_encoder == 'single':
+        labels = LabelsSingle()
+    elif args.label_encoder == 'single_ext':
+        labels = LabelsSingle(extended=True)
     else:
         raise ValueError('Unknown label encoder type.')
 

@@ -61,7 +61,7 @@ class Labels(object):  # 38 symbols
         return list(filter(None, [self.labels_map_inv.get(t) for t in tokens]))
 
 
-class LabelsMulti(object):  # 148 symbols
+class LabelsMultiple(object):  # 148/173 symbols
     def __init__(self, extended=False):
         # yapf: disable
         self.labels = [
@@ -121,7 +121,7 @@ class LabelsMulti(object):  # 148 symbols
         return list(filter(None, [self.labels_map_inv.get(t) for t in tokens]))
 
 
-class LabelsMulti2(object):  # 9147 symbols
+class LabelsSingle(object):  # 9147/13632 symbols
     def __init__(self, extended=False):
         # yapf: disable
         durations = ["1","1.","2","2.","4","4.","8","8.","16","16.","32","32.","64","64.","3","6","12","24","48","96"]                          # noqa E501 E231

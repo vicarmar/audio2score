@@ -96,9 +96,9 @@ if __name__ == '__main__':
         '--label-encoder',
         type=str,
         default='multi',
-        choices=['simple', 'multi', 'multi_ext', 'multi2', 'multi2_ext'],
+        choices=['simple', 'multi', 'multi_ext', 'single', 'single_ext'],
         help="Type of encoder that was used. Choose from 'simple', 'multi', "
-        "'multi_ext', 'multi2', 'multi2_ext'. Use multichar labels to reduce sequence size"
+        "'multi_ext', 'single', 'single_ext'. Use single symbol labels to reduce sequence size"
     )
     parser.add_argument(
         '-rs',
