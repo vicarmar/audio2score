@@ -2,15 +2,16 @@ name: a2s
 channels:
   - pytorch
 dependencies:
-  - python=3.7
-  - numpy
-  - scikit-learn
-  - pandas
-  - pytorch
-  - tqdm
-  - cython
-  - cffi
+  - python=3.8
   - pip:
+    - numpy
+    - scikit-learn
+    - pandas
+    - tqdm
+    - cython
+    - cffi
     - python-levenshtein
     - librosa
     - madmom
+    - torch==1.8.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+    - torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
