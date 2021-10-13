@@ -98,7 +98,7 @@ TODO: Provide scripts that download everything for first data prep stage.
 
 ## Dataset preparation
 
-There exists specific commands for dataset preparation providing default configurations, in order to have homogeneous ouputs.
+There exist specific commands for dataset preparation providing default configurations, in order to have homogeneous ouputs.
 * `a2s-prepare-sonatas` or `a2s-prepare`: Sets the instruments to 'piano'.
 * `a2s-prepare-quartets`: Sets the instrument to 'cello,viola,violn,flt'.
 
@@ -127,7 +127,7 @@ The preparation script will create in the ouput folder a new folder with the nam
 
 If you want to run the data preparation with other parameters, you may add them at the end of the previous command line, as in the following example:
 ```
-a2s-prepare-sonatas --id mani input_folder output_folder --constrained
+a2s-prepare-sonatas --id tag --data-dir input_folder --out-dir output_folder --constrained
 ```
 
 ### Combining datasets
@@ -140,58 +140,50 @@ There exist a `--dry-run` option that will not create the output files, but will
 
 For example:
 ```
-a2s-combine-dataset --data-dir input/to/data --id tag --label-encoder single_ext [--constrained] 
+a2s-combine-dataset --data-dir path/to/data --id tag --label-encoder single_ext [--constrained] 
 ```
 
 Run `a2s-combine-dataset --help` for a complete list of options and default values.
 
 ## Training
 
-Run this shell script to start training with the default parameters:
+Run ``a2s-train`` to start training. It is necessary to provide at least a parameters config file, the directory where the manifests are (like the output directory from data preparation), the id tag for the manifests to use from the previous directory (like the one used in data preparation), and a model path to the output model file where the best checkpoint will be saved.
 ```
-./runtrain.sh config/quartets.cfg manifest_id model_id
+a2s-train --config-path config/quartets.cfg --data-dir ./datasets/ --data-id tag --model-path ./models/mymodel.pth
 ```
-
-If you want to run the training with other parameters, you may add them at the end of the previous command line, as in the following example:
-```
-./runtrain.sh config/quartets.cfg manifest_id model_id --num-workers 4
-```
-Please run ```python train.py --help``` for a complete list of options.
+Other optional arguments can be provided. Please run ```a2s-train --help``` for a complete list of options.
 
 You may also check the [configuration file](config/quartets.cfg) for extended training parameters.
 
-### Multi-GPU
+<!-- ### Multi-GPU
 
 Add -m multiproc to the training script as in the following snipet:
 ```
 python -m multiproc train.py --cuda  # Add your parameters as normal
-```
+``` -->
 
 ### Mixed Precision
 
 ```
-python train.py --cuda --mixed-precision # Add your parameters as normal
+as2-train --mixed-precision # Add your parameters as normal
 ```
-Mixed precision can also be combined with multi-GPU:
+<!-- Mixed precision can also be combined with multi-GPU:
 ```
 python -m multiproc train.py --cuda --mixed-precision  # Add your parameters as normal
-```
+``` -->
 
 ### Checkpoints
 
 To continue from a checkpointed model that has been saved:
 
 ```
-./runtrain.sh config/quartets.cfg manifest_id model_id --continue-from models/model_id.last.pth
+a2s-train --config-path config/quartets.cfg --data-dir ./datasets/ --data-id tag --model-path ./models/mymodel.pth --continue-from models/mymodel.last.pth
 ```
 
 If you would like to start from a previous checkpoint model but not continue training, add the `--finetune` flag to restart training from the `--continue-from` model state.
 
-After each epoch a new checkpoint is always saved with one of these namings:
-```
-models/model_id.pth # For the best model so far
-models/model_id.last.pth # For the last model that is not the best so far
-```
+After each epoch a new checkpoint is always saved with the model name provided as argument, with extension .pth, if it is the best model so far, or with a suffix .last.pth instead, for the last model that is not the best so far.
+
 
 ## Testing
 
@@ -212,9 +204,9 @@ Also, `a2s-transcribe` script is provided to output a single transcription from 
 a2s-transcribe --model-path models/model_id.pth --audio-path /path/to/audio.flac
 ```
 
-## Model
+## Model inspection
 
-To display hyperparams and other training metadata of any checkpointed model:
+Use `a2s-showmodel` to display hyperparams and other training metadata of any checkpointed model:
 
 ```
 a2s-showmodel models/model_id.pth

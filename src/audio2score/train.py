@@ -24,37 +24,32 @@ from audio2score.utils import (AverageMeter, LabelDecoder, calculate_cer, calcul
 
 def main():
     parser = argparse.ArgumentParser(description='DeepSpeech training')
-    parser.add_argument('--train-manifest',
+    parser.add_argument('--data-dir',
                         metavar='DIR',
                         required=True,
-                        help='path to train manifest csv')
-    parser.add_argument('--val-manifest',
-                        metavar='DIR',
-                        required=True,
-                        help='path to validation manifest csv')
-    parser.add_argument('--labels-path',
-                        metavar='DIR',
-                        required=True,
-                        help='Contains all characters for transcription')
+                        help='Dataset label, train and validation manifests folder')
+    parser.add_argument('--data-id',
+                        default='manifest',
+                        help='Id of manifest and label files')
     parser.add_argument('--config-path',
                         metavar='DIR',
                         required=True,
                         help='path to configuration ini')
-    parser.add_argument('--continue-from',
-                        metavar='DIR',
-                        help='Continue from checkpoint model')
     parser.add_argument('--model-path',
                         metavar='DIR',
                         required=True,
                         help='Location to save best validation model')
+
+    parser.add_argument('--continue-from',
+                        metavar='DIR',
+                        help='Continue from checkpoint model')
     parser.add_argument('--num-workers',
                         default=4,
                         type=int,
                         help='Number of workers used in data-loading')
-    parser.add_argument('--cuda',
-                        dest='cuda',
+    parser.add_argument('--no-cuda',
                         action='store_true',
-                        help='Use cuda to train model')
+                        help='Do not use cuda to train model')
     parser.add_argument('--silent',
                         dest='silent',
                         action='store_true',
@@ -63,6 +58,7 @@ def main():
                         dest='finetune',
                         action='store_true',
                         help='Finetune the model from checkpoint "continue_from"')
+
     parser.add_argument('--dist-url',
                         default='tcp://127.0.0.1:1550',
                         type=str,
@@ -96,10 +92,13 @@ def main():
 def train(args):
     config = configparser.ConfigParser()
 
+    args.model_path = Path(args.model_path).with_suffix('.pth')
     save_folder = os.path.dirname(args.model_path)
+    if not save_folder:
+        save_folder = './' 
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
     # Logging config.
-    train_job = f"train_{Path(args.model_path).with_suffix('.log').name}"
+    train_job = f"train_{args.model_path.with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{train_job}'
     logger = config_logger('train', log_file=log_file)
 
@@ -129,15 +128,15 @@ def train(args):
     random.seed(args.seed)
 
     # Mixed precision.
-    if args.mixed_precision and not args.cuda:
+    if args.mixed_precision and args.no_cuda:
         raise ValueError(
             'If using mixed precision training, CUDA must be enabled!')
 
     # Distributed training.
     args.distributed = args.world_size > 1
     main_proc = True
-    device = torch.device("cuda" if args.cuda else "cpu")
-    if args.cuda:
+    device = torch.device("cpu" if args.no_cuda else "cuda")
+    if not args.no_cuda:
         torch.cuda.set_per_process_memory_fraction(0.5, torch.cuda.current_device())
 
     if args.distributed:
@@ -152,9 +151,9 @@ def train(args):
     # Allocation of results.
     train_results, val_results = torch.Tensor(epochs), torch.Tensor(epochs)
     best_wer = None
-    last_model_path = Path(args.model_path).with_suffix('.last.pth')
+    last_model_path = args.model_path.with_suffix('.last.pth')
 
-    results_path = Path(args.model_path).with_suffix('.csv')
+    results_path = args.model_path.with_suffix('.csv')
     with open(results_path, 'a') as resfile:
         wr = csv.writer(resfile)
         wr.writerow([
@@ -184,7 +183,7 @@ def train(args):
                 val_results[i] = package['val_results'][i]
             best_wer = float(val_results[:start_epoch].min())
     else:
-        with open(args.labels_path) as label_file:
+        with open(Path(args.data_dir) / f'labels_{args.data_id}.json') as label_file:
             labels = json.load(label_file)
 
         model = Model(model_conf, audio_conf, labels)
@@ -192,11 +191,14 @@ def train(args):
     model = model.to(device)
 
     # Data inputs configuration
+    train_manifest = Path(args.data_dir) / f'train_{args.data_id}.csv'
+    val_manifest = Path(args.data_dir) / f'val_{args.data_id}.csv'
+
     train_dataset = SpectrogramDataset(audio_conf=audio_conf,
-                                       manifest_filepath=args.train_manifest,
+                                       manifest_filepath=train_manifest,
                                        labels=labels)
     val_dataset = SpectrogramDataset(audio_conf=audio_conf,
-                                     manifest_filepath=args.val_manifest,
+                                     manifest_filepath=val_manifest,
                                      labels=labels)
     label_decoder = LabelDecoder(labels)
 
@@ -253,7 +255,7 @@ def train(args):
     else:
         raise NotImplementedError
 
-    if args.cuda:
+    if not args.no_cuda:
         if not args.mixed_precision:
             model, optimizer = amp.initialize(model, optimizer, opt_level='O0')
         else:

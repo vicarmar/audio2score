@@ -21,7 +21,7 @@ def main():
                         default='models/model_default.pth',
                         help='Path to model file created by training',
                         required=True)
-    parser.add_argument('-tm', '--test-manifest',
+    parser.add_argument('-t', '--test-manifest',
                         metavar='DIR',
                         help='path to validation manifest csv',
                         required=True,
@@ -47,6 +47,8 @@ def main():
 
 def test(args):
     save_folder = os.path.dirname(args.model_path)
+    if not save_folder:
+        save_folder = './' 
     manifest_name = '_'.join([*Path(args.test_manifest).parts[-2:]])
     test_job = f"test_{manifest_name}_{Path(args.model_path).with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{test_job}'

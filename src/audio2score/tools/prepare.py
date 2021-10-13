@@ -71,7 +71,7 @@ def process_sample(q, samples, args, labels, invalid_counters):
         root_path = Path(args.out_dir) / score_path.parent
         root_path.mkdir(parents=True, exist_ok=True)
 
-        krn_path = Path(args.out_dir) / score_path
+        krn_path = (Path(args.out_dir) / score_path).resolve()
         krn_path_clean = krn_path.with_suffix('.clean.krn')
         kern.save(krn_path_clean)
 
