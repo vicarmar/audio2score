@@ -2,8 +2,9 @@
 FROM nvcr.io/nvidia/pytorch:20.12-py3
 ARG lang=en
 ENV INPUT_LANG ${lang}
+ENV DEBIAN_FRONTEND="noninteractive" TZ="Europe/Madrid"
 RUN apt-get -y update \
-&& DEBIAN_FRONTEND=noninteractive apt-get -y install sudo curl locales \ 
+&& apt-get -y install sudo curl locales \ 
 && rm -rf /var/lib/apt/lists/*
 RUN apt-get -y upgrade
 RUN locale-gen en_US.UTF-8
@@ -27,13 +28,6 @@ RUN apt-get update \
 && apt-get -y install nano sox libsox-dev libsox-fmt-all fluidsynth ffmpeg \
 && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies.
-RUN pip install numpy scikit-learn pandas tqdm cython cffi python-levenshtein librosa madmom
-
-# Install pytorch and pytorch audio, from last stable, support for cuda111.
-RUN pip install torch==1.8.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
-RUN pip list
-
 # Install Humdrum extras from source and build it, and add to PATH.
 RUN git clone https://github.com/mangelroman/humextra.git
 RUN cd humextra && make library && make hum2mid && make tiefix && make xml2hum
@@ -46,6 +40,19 @@ ENV PATH="/home/user/humdrum/bin:${PATH}"
 # CUSTOM PROMPT.
 ENV TERM=xterm-256color
 RUN echo 'export PS1="${debian_chroot:+($debian_chroot)}\[\e[1;32m\]\u@audio2score(\h)\[\e[m\] \[\e[1;36m\]\w\a\[\e[m\]\$ "' >> .bashrc
+
+# Install python dependencies.
+COPY requirements.txt a2s/requirements.txt
+RUN pip install -r a2s/requirements.txt
+
+ARG cleancache=''
+RUN echo "Installing Audio2Score $cleancache"
+
+ADD setup.py a2s/setup.py
+ADD src a2s/src
+RUN chown -R user:user /home/user/a2s
+
+CMD pip install -e ./a2s && bash
 
 # Change to user
 USER user

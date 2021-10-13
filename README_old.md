@@ -1,66 +1,66 @@
 # audio2score
 
-Implementation of audio-to-score task, as supplementary material for review of 
-"COMPACT OUTPUT REPRESENTATIONS FOR UNCONSTRAINEDPOLYPHONIC AUDIO-TO-SCORE MUSIC TRANSCRIPTION"
+Implementation of audio-to-score task as referred in the paper "A holistic approach to polyphonic music transcription with neural networks" (link to follow).
 
 The neural network architecture is based on [DeepSpeech2](https://arxiv.org/abs/1512.02595).
 
 ## Installation
 
-Tested on Ubuntu Server 20.04, with python 3.8.
+Tested on Ubuntu Server 18.04 with miniconda package and environment manager.
 
-1. Install Ubuntu dependencies.
+1. Clone this repository and create a conda environment with the provided dependencies:
 ```
-sudo apt-get update \
-&& apt-get -y install nano sox libsox-dev libsox-fmt-all fluidsynth ffmpeg \
-&& rm -rf /var/lib/apt/lists/*
+git clone https://github.com/mangelroman/audio2score.git
+conda env create --file=audio2score/environment.yaml
+conda activate a2s
 ```
 
-2. Install NVIDIA apex, if not already available:
+2. Install pytorch audio:
+```
+sudo apt-get install sox libsox-dev libsox-fmt-all
+git clone https://github.com/pytorch/audio.git
+cd audio && python setup.py install
+```
+
+3. Install NVIDIA apex:
 ```
 git clone --recursive https://github.com/NVIDIA/apex.git
 cd apex && pip install .
 ```
 
-3. Install python dependencies.
+4. Install Fluidsynth and FFmpeg
 ```
-pip install numpy scikit-learn pandas tqdm cython cffi python-levenshtein librosa madmom
-```
-
-4. Install pytorch and pytorch audio, from last stable, support for cuda111.
-```
-pip install torch==1.8.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+sudo apt-get install fluidsynth ffmpeg
 ```
 
-5. Install Humdrum extras from source and build it, and add them to $PATH.
+5. Build Humdrum extra tools and copy them to a $PATH location 
 ```
-git clone https://github.com/humdrum-tools/humextra.git
-cd humextra && make library && make hum2mid && make tiefix
+git clone https://github.com/mangelroman/humextra.git
+cd humextra
+make library
+make hum2mid
+make tiefix
 ```
 
 
-## Dataset preparation
+## Dataset
 
-1. Create a folder to store all kern-based repositories, for example:
+1. Create a folder to store all kern-based quartet repositories:
 ```
-mkdir datasets && cd datasets
-git clone https://github.com/craigsapp/beethoven-piano-sonatas.git
-
+mkdir quartets && cd quartets
+git clone https://github.com/mangelroman/humdrum-mozart-quartets.git
+git clone https://github.com/mangelroman/humdrum-haydn-quartets.git
+git clone https://github.com/mangelroman/beethoven-string-quartets.git
 ```
 2. Run data preparation script pointing to the folder you just created
 ```
-./prepsonatas.sh id input_folder output_folder
+./prepquartets.sh id input_folder output_folder
 ```
 The preparation script will create the following files in the current folder:
 * train_id.csv with the training input and output file locations (stored in output_folder)
 * val_id.csv with the validation input and output file locations (stored in output_folder)
 * test_id.csv with the test input and output file locations (stored in output_folder)
 * labels_id.json with the list of labels in the output representation
-
-If you want to run the data preparation with other parameters, you may add them at the end of the previous command line, as in the following example:
-```
-./prepsonatas.sh id input_folder output_folder --label-encoder single
-```
 
 ## Training
 
@@ -120,7 +120,7 @@ To evaluate a trained model on a test set:
 
 An example script to output a single transcription has been provided:
 ```
-python transcribe.py --model-path models/model_id.pth --audio-path /path/to/audio.flac
+python transcribe.py --model-path models/model_id.pth --audio-path /path/to/audio.wav
 ```
 
 ## Model
@@ -130,3 +130,7 @@ To display hyperparams and other training metadata of any checkpointed model:
 ```
 python showmodel.py models/model_id.pth
 ```
+
+## Acknowledgements
+
+Most of this code is borrowed from [Sean Naren](https://github.com/SeanNaren/deepspeech.pytorch).

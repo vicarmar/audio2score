@@ -108,6 +108,7 @@ venv.bak/
 
 # Saved models and datasets
 /models*
+/datasets*
 /oldmodels
 /results
 train_*.csv
@@ -115,3 +116,5 @@ test_*.csv
 val_*.csv
 labels_*.json
 .vscode
+*/myscripts*
+TODO

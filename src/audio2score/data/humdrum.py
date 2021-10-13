@@ -261,10 +261,10 @@ class SpineInfo(object):
 
 
 class Kern(Humdrum):
-    def __init__(self, path=None, data=None, remove_splits=True):
+    def __init__(self, path=None, data=None, constrained=True):
         super(Kern, self).__init__(path, data)
 
-        self.remove_splits = remove_splits
+        self.constrained = constrained
         self.spines = SpineInfo(self.spine_types)
         self.first_line = 0
         for i, line in enumerate(self.body):
@@ -311,14 +311,14 @@ class Kern(Humdrum):
                         remove_spine = False
                     i += 1
                     newline.append(item)
-                if not self.remove_splits:
+                if not self.constrained:
                     newbody.append('\t'.join(newline))
 
                 continue
 
             if line.startswith('!'):
                 # Support for local comments (one per spine starting with '!').
-                if self.remove_splits:
+                if self.constrained:
                     newline = []
                     items = line.split('\t')
                     for i, item in enumerate(items):
@@ -339,7 +339,7 @@ class Kern(Humdrum):
 
             items = line.split('\t')
             for i, item in enumerate(items):
-                if self.remove_splits and spine_types[i].endswith('**split') \
+                if self.constrained and spine_types[i].endswith('**split') \
                         and base_spine_len < len(items):
                     # print(f'Discarding item! {line}: {item}')
                     # Remove spline split
@@ -347,7 +347,7 @@ class Kern(Humdrum):
 
                 if spine_types[i].startswith('**kern') and \
                         not item.startswith(('*', '=')):
-                    if self.remove_splits:
+                    if self.constrained:
                         item = item.split()[0]  # Take first note of chord
                     item = re.sub(r'[pTtMmWwS$O:]', r'',
                                   item)  # Remove ornaments
@@ -410,7 +410,7 @@ class Kern(Humdrum):
                 body = self.body[m_begin:m_end]
 
             # Fix spine splits
-            if not self.remove_splits:
+            if not self.constrained:
                 # Fix first line of body.
                 len_spines = len(self.spine_types)
                 if len_spines != len(body[0].split('\t')):
@@ -448,7 +448,7 @@ class Kern(Humdrum):
 
             # If not removing splits, no need to update the spines for the
             # next chunks as all split lines and marks are added after header.
-            if self.remove_splits:
+            if self.constrained:
                 for line in self.body[m_begin:measures[i]]:
                     if line.startswith('*'):
                         spines.update(line)
@@ -464,7 +464,7 @@ class Kern(Humdrum):
                 if not re.match(r'^=(\d+|=)[^-]*', line):
                     continue
                 newline.append('=')
-            elif not self.remove_splits and re.search(r'\*[\^v]', line):
+            elif not self.constrained and re.search(r'\*[\^v]', line):
                 i = 0
                 remove_spine = False
                 min_split_counts = 100
@@ -498,7 +498,7 @@ class Kern(Humdrum):
                 for i, item in enumerate(line.split('\t')):
                     if spine_types[i].startswith('**kern'):
                         # Chords splitting:
-                        if not self.remove_splits and ' ' in item:
+                        if not self.constrained and ' ' in item:
                             chord = item.split()
                             for note in chord:
                                 newline.append(note)

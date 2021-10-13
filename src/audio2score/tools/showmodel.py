@@ -1,16 +1,10 @@
 import argparse
 
-from utils import load_model
+from audio2score.utils import load_model
 
-parser = argparse.ArgumentParser(description='DeepSpeech model information')
-parser.add_argument('model_path',
-                    metavar='FILE',
-                    help='Path to model created by training')
-args = parser.parse_args()
 
-if __name__ == '__main__':
-
-    model, package = load_model(args.model_path)
+def show_model(model_path):
+    model, package = load_model(model_path)
 
     print("Model name:    ", model.name)
     print("Model version: ", model.version)
@@ -52,3 +46,17 @@ if __name__ == '__main__':
             package['train_results'][epochs]))
         print("  Current Validation Results: {0:.3f}".format(
             package['val_results'][epochs]))
+
+
+def main():
+    parser = argparse.ArgumentParser(description='DeepSpeech model information')
+    parser.add_argument('model_path',
+                        metavar='FILE',
+                        help='Path to model created by training')
+    args = parser.parse_args()
+    show_model(args.model_path)
+
+
+if __name__ == '__main__':
+    main()
+    

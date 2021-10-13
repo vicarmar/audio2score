@@ -3,12 +3,15 @@ from pathlib import Path
 
 import pandas as pd
 
-from data.data_loader import load_audio
-from utils import config_logger
+from audio2score.data.data_loader import load_audio
+from audio2score.utils import config_logger
 
 
-def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050):
+def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050, dry_run=True):
     logger = config_logger('combine_datasets', console_level='INFO')
+
+    if dry_run:
+        logger.info('Running in dry-run mode.')
 
     if not isinstance(data_dir, Path):
         data_dir = Path(data_dir)
@@ -17,15 +20,18 @@ def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050):
     labels_path = [
         i for i in data_dir.rglob(f'*{dataset_config}/labels*.json')
     ][0]
-    outpath = data_dir / f'labels_{tag}_{dataset_config}.json'
-    logger.info(f'Saving encoder labels to {outpath}')
-    outpath.write_text(labels_path.read_text())
+    if not dry_run:
+        outpath = data_dir / f'labels_{tag}_{dataset_config}.json'
+        logger.info(f'Saving encoder labels to {outpath}')
+        outpath.write_text(labels_path.read_text())
 
     dataset_partitions = ['test', 'train', 'val']
     extension = 'csv'
+    dataset_duration = 0
+    dataset_samples = 0
     for dataset_partition in dataset_partitions:
         logger.info(
-            f'Looking for partition {dataset_partition} from configuration {dataset_config}.'
+            f'\nLooking for partition {dataset_partition} from configuration {dataset_config}.'
         )
         all_filenames = [
             i for i in data_dir.rglob(
@@ -41,10 +47,6 @@ def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050):
             0: "audio",
             1: "seq"
         })
-        logger.info(combined_csv.groupby('filename')['audio'].count())
-        logger.info(
-            f"Combined partition {dataset_partition}: {combined_csv['audio'].count()} samples."
-        )
 
         durations = []
         total_duration = 0
@@ -65,23 +67,39 @@ def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050):
         # SortaGrad
         combined_csv = combined_csv.sort_values(by='duration')
 
+        logger.info(f"Samples:\n {combined_csv.groupby('filename')['audio'].count()}")
+        samples = combined_csv['audio'].count()
+        logger.info(
+            f"Combined partition {dataset_partition} total samples: {samples} samples."
+        )
+        dataset_samples += samples 
+
+        logger.info(f"Duration:\n {combined_csv.groupby('filename')['duration'].sum()/60/60}")
         total_duration = combined_csv['duration'].sum()
+        dataset_duration += total_duration
+
         logger.info(f'Total duration: {total_duration/60/60} hours.')
         logger.info(f'Found {audio_errors} errors during loading.')
 
-        # export to csv
-        outpath = data_dir / f'{dataset_partition}_{tag}_{dataset_config}.{extension}'
-        logger.info(f'Saving to {outpath}')
-        combined_csv.drop(['filename', 'duration'],
-                          axis=1).to_csv(outpath,
-                                         index=False,
-                                         header=False,
-                                         encoding='iso-8859-1')
+        if not dry_run:
+            # export to csv
+            outpath = data_dir / f'{dataset_partition}_{tag}_{dataset_config}.{extension}'
+            logger.info(f'Saving to {outpath}')
+            combined_csv.drop(['filename', 'duration'],
+                            axis=1).to_csv(outpath,
+                                            index=False,
+                                            header=False,
+                                            encoding='iso-8859-1')
+
+    logger.info(f'Total dataset duration: {dataset_duration/60/60} hours.')
+    logger.info(f'Total dataset samples: {dataset_samples} samples.')
 
 
-if __name__ == '__main__':
+def main():
     # Arguments parsing.
-    parser = argparse.ArgumentParser(description='Combine datasets')
+    parser = argparse.ArgumentParser(
+        description='Combine datasets',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-d',
                         '--data-dir',
                         metavar='DIR',
@@ -95,19 +113,29 @@ if __name__ == '__main__':
         '-le',
         '--label-encoder',
         type=str,
-        default='multi',
+        default='single_ext',
         choices=['simple', 'multi', 'multi_ext', 'single', 'single_ext'],
         help="Type of encoder that was used. Choose from 'simple', 'multi', "
         "'multi_ext', 'single', 'single_ext'. Use single symbol labels to reduce sequence size"
     )
     parser.add_argument(
         '-rs',
-        '--remove-splits',
+        '--constrained',
         action="store_true",
         default=False,
-        help="If --remove-splits was used or not when preparing the data")
+        help="If --constrained was used or not when preparing the data")
+    parser.add_argument(
+        '-dry',
+        '--dry-run',
+        action="store_true",
+        default=False,
+        help="Dry run, will not create output files.")
     args = parser.parse_args()
 
     data_dir = Path(args.data_dir)
-    dataset_config = f'{args.label_encoder}{"_splits" if not args.remove_splits else ""}'
-    combine_datasets(data_dir, args.id, dataset_config)
+    dataset_config = f'{args.label_encoder}{"_unconstrained" if not args.constrained else ""}'
+    combine_datasets(data_dir, args.id, dataset_config, dry_run=args.dry_run)
+
+
+if __name__ == '__main__':
+    main()

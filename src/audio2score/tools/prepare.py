@@ -14,9 +14,9 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
-from data.data_loader import load_audio
-from data.humdrum import Kern, Labels, LabelsMultiple, LabelsSingle
-from utils import config_logger
+from audio2score.data.data_loader import load_audio
+from audio2score.data.humdrum import Kern, Labels, LabelsMultiple, LabelsSingle
+from audio2score.utils import config_logger
 
 
 def parseList(string):
@@ -53,8 +53,10 @@ def process_sample(q, samples, args, labels, invalid_counters):
 
         # Remove grace notes, ornaments, etc...
         kern = Kern(Path(args.data_dir) / score_path,
-                    remove_splits=args.remove_splits)
-        kern.spines.override_instruments(args.instruments)
+                    constrained=args.constrained)
+        if args.instruments is not None:
+            kern.spines.override_instruments(args.instruments)
+
         try:
             if not kern.clean():
                 logger.error(f'Cannot clean kern {score_path}')
@@ -101,7 +103,7 @@ def process_sample(q, samples, args, labels, invalid_counters):
                 tiefix_errors += 1
                 continue
 
-            kern = Kern(data=process.stdout, remove_splits=args.remove_splits)
+            kern = Kern(data=process.stdout, constrained=args.constrained)
             kern.save(chunk_path)
 
             audio_path = chunk_path.with_suffix('.flac')
@@ -230,9 +232,15 @@ def process_scores(scores, args, labels):
     return x, y, np.sum(durations)
 
 
-if __name__ == '__main__':
+def main_quartets():
+    main(instruments='cello,viola,violn,flt')
+
+
+def main(instruments='piano'):
     # Arguments parsing.
-    parser = argparse.ArgumentParser(description='Spectrum preparation')
+    parser = argparse.ArgumentParser(
+        description='Dataset preparation', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--data-dir',
                         metavar='DIR',
                         help='path to data',
@@ -241,17 +249,22 @@ if __name__ == '__main__':
                         metavar='DIR',
                         help='path to output',
                         required=True)
+    parser.add_argument('--id',
+                        default='manifest',
+                        help='Id of output manifest and label files')
     parser.add_argument('--min-duration-symbol',
                         type=float,
+                        default=0.01161,
                         help='Select the minimum duration per symbol',
-                        required=True)
+                        required=False)
     parser.add_argument(
         '--max-duration',
         type=float,
+        default=30.0,
         help='Select maximum duration of audio input files in seconds',
-        required=True)
+        required=False)
     parser.add_argument('--num-workers',
-                        default=None,
+                        default=8,
                         type=int,
                         help='Number of workers used in data preparation')
     parser.add_argument('--sample-rate',
@@ -274,7 +287,7 @@ if __name__ == '__main__':
     parser.add_argument('--instruments',
                         type=parseList,
                         help='Override kern defined intruments',
-                        default='piano')
+                        default=instruments)
     parser.add_argument('--tempo-scaling',
                         type=float,
                         default=0.06,
@@ -282,7 +295,7 @@ if __name__ == '__main__':
     parser.add_argument('--chunk-sizes',
                         type=parseIntList,
                         help='Select chunk sizes separated by commas',
-                        default=[sys.maxsize])
+                        default=[3,4,5,6])
     parser.add_argument('--test-split',
                         type=float,
                         default=0.3,
@@ -291,25 +304,25 @@ if __name__ == '__main__':
         '--train-stride',
         type=int,
         help='Select the stride of overlapped training samples',
-        default=None)
-    parser.add_argument('--id',
-                        default='manifest',
-                        help='Id of output manifest and label files')
+        default=1)
     parser.add_argument(
         '--label-encoder',
         type=str,
-        default='multi',
+        default='single_ext',
         choices=['simple', 'multi', 'multi_ext', 'single', 'single_ext'],
         help="Type of encoder that was used. Choose from 'simple', 'multi', "
         "'multi_ext', 'single', 'single_ext'. Use single symbol labels to reduce sequence size"
     )
-    parser.add_argument('--remove-splits',
+    parser.add_argument('--constrained',
                         action="store_true",
                         default=False,
                         help="Clean splits and chords during kern cleaning")
     args = parser.parse_args()
+    prepare(args)
 
-    data_prep_job = f'{args.id}_{args.label_encoder}{"_splits" if not args.remove_splits else ""}'  # noqa E501
+
+def prepare(args):
+    data_prep_job = f'{args.id}_{args.label_encoder}{"_unconstrained" if not args.constrained else ""}'  # noqa E501
     outdir = Path(args.out_dir) / data_prep_job
     outdir.mkdir(parents=True, exist_ok=True)
     args.out_dir = str(outdir)
@@ -345,9 +358,6 @@ if __name__ == '__main__':
         labels = LabelsSingle(extended=True)
     else:
         raise ValueError('Unknown label encoder type.')
-
-    if args.num_workers is None:
-        args.num_workers = 4
 
     logger.info("Processing training samples:")
     x_train, y_train, train_dur = process_scores(scores_train, args, labels)
@@ -401,3 +411,6 @@ if __name__ == '__main__':
         json.dump(labels.labels, jsonfile)
 
     sys.exit(0)
+
+if __name__ == '__main__':
+    main()

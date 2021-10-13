@@ -16,79 +16,84 @@ from apex import amp
 from apex.parallel import DistributedDataParallel
 from tqdm import tqdm
 
-from data.data_loader import (AudioDataLoader, BucketingSampler,
+from audio2score.data.data_loader import (AudioDataLoader, BucketingSampler,
                               DistributedBucketingSampler, SpectrogramDataset)
-from utils import (AverageMeter, LabelDecoder, calculate_cer, calculate_ler,
+from audio2score.utils import (AverageMeter, LabelDecoder, calculate_cer, calculate_ler,
                    calculate_wer, config_logger, load_model, save_model)
 
-parser = argparse.ArgumentParser(description='DeepSpeech training')
-parser.add_argument('--train-manifest',
-                    metavar='DIR',
-                    required=True,
-                    help='path to train manifest csv')
-parser.add_argument('--val-manifest',
-                    metavar='DIR',
-                    required=True,
-                    help='path to validation manifest csv')
-parser.add_argument('--labels-path',
-                    metavar='DIR',
-                    required=True,
-                    help='Contains all characters for transcription')
-parser.add_argument('--config-path',
-                    metavar='DIR',
-                    required=True,
-                    help='path to configuration ini')
-parser.add_argument('--continue-from',
-                    metavar='DIR',
-                    help='Continue from checkpoint model')
-parser.add_argument('--model-path',
-                    metavar='DIR',
-                    required=True,
-                    help='Location to save best validation model')
-parser.add_argument('--num-workers',
-                    default=4,
-                    type=int,
-                    help='Number of workers used in data-loading')
-parser.add_argument('--cuda',
-                    dest='cuda',
-                    action='store_true',
-                    help='Use cuda to train model')
-parser.add_argument('--silent',
-                    dest='silent',
-                    action='store_true',
-                    help='Turn off progress tracking per iteration')
-parser.add_argument('--finetune',
-                    dest='finetune',
-                    action='store_true',
-                    help='Finetune the model from checkpoint "continue_from"')
-parser.add_argument('--dist-url',
-                    default='tcp://127.0.0.1:1550',
-                    type=str,
-                    help='url used to set up distributed training')
-parser.add_argument('--dist-backend',
-                    default='nccl',
-                    type=str,
-                    help='distributed backend')
-parser.add_argument('--world-size',
-                    default=1,
-                    type=int,
-                    help='number of distributed processes')
-parser.add_argument('--rank',
-                    default=0,
-                    type=int,
-                    help='The rank of this process')
-parser.add_argument('--gpu-rank',
-                    default=None,
-                    help='If using distributed parallel for multi-gpu, '
-                    'sets the GPU for the process')
-parser.add_argument('--seed', default=45, type=int, help='Seed to generators')
-parser.add_argument('--mixed-precision',
-                    action='store_true',
-                    help='Uses mixed precision to train a model '
-                    '(suggested with volta and above)')
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser(description='DeepSpeech training')
+    parser.add_argument('--train-manifest',
+                        metavar='DIR',
+                        required=True,
+                        help='path to train manifest csv')
+    parser.add_argument('--val-manifest',
+                        metavar='DIR',
+                        required=True,
+                        help='path to validation manifest csv')
+    parser.add_argument('--labels-path',
+                        metavar='DIR',
+                        required=True,
+                        help='Contains all characters for transcription')
+    parser.add_argument('--config-path',
+                        metavar='DIR',
+                        required=True,
+                        help='path to configuration ini')
+    parser.add_argument('--continue-from',
+                        metavar='DIR',
+                        help='Continue from checkpoint model')
+    parser.add_argument('--model-path',
+                        metavar='DIR',
+                        required=True,
+                        help='Location to save best validation model')
+    parser.add_argument('--num-workers',
+                        default=4,
+                        type=int,
+                        help='Number of workers used in data-loading')
+    parser.add_argument('--cuda',
+                        dest='cuda',
+                        action='store_true',
+                        help='Use cuda to train model')
+    parser.add_argument('--silent',
+                        dest='silent',
+                        action='store_true',
+                        help='Turn off progress tracking per iteration')
+    parser.add_argument('--finetune',
+                        dest='finetune',
+                        action='store_true',
+                        help='Finetune the model from checkpoint "continue_from"')
+    parser.add_argument('--dist-url',
+                        default='tcp://127.0.0.1:1550',
+                        type=str,
+                        help='url used to set up distributed training')
+    parser.add_argument('--dist-backend',
+                        default='nccl',
+                        type=str,
+                        help='distributed backend')
+    parser.add_argument('--world-size',
+                        default=1,
+                        type=int,
+                        help='number of distributed processes')
+    parser.add_argument('--rank',
+                        default=0,
+                        type=int,
+                        help='The rank of this process')
+    parser.add_argument('--gpu-rank',
+                        default=None,
+                        help='If using distributed parallel for multi-gpu, '
+                        'sets the GPU for the process')
+    parser.add_argument('--seed', default=45, type=int, help='Seed to generators')
+    parser.add_argument('--mixed-precision',
+                        action='store_true',
+                        help='Uses mixed precision to train a model '
+                        '(suggested with volta and above)')
+
     args = parser.parse_args()
+    train(args)
+
+
+def train(args):
     config = configparser.ConfigParser()
 
     save_folder = os.path.dirname(args.model_path)
@@ -106,8 +111,8 @@ if __name__ == '__main__':
     audio_conf = config['audio']
 
     if model_name == "deepspeech":
-        from deepspeech.loss import Loss
-        from deepspeech.model import DeepSpeech as Model
+        from audio2score.deepspeech.loss import Loss
+        from audio2score.deepspeech.model import DeepSpeech as Model
     else:
         raise NotImplementedError
 
@@ -132,6 +137,9 @@ if __name__ == '__main__':
     args.distributed = args.world_size > 1
     main_proc = True
     device = torch.device("cuda" if args.cuda else "cpu")
+    if args.cuda:
+        torch.cuda.set_per_process_memory_fraction(0.5, torch.cuda.current_device())
+
     if args.distributed:
         if args.gpu_rank:
             torch.cuda.set_device(int(args.gpu_rank))
@@ -409,3 +417,7 @@ if __name__ == '__main__':
         if shuffle:
             logger.info("Shuffling batches...")
             train_sampler.shuffle(epoch)
+
+
+if __name__ == '__main__':
+    main()

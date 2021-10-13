@@ -12,7 +12,7 @@ import torchaudio
 from torch.distributed import get_rank, get_world_size
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import Sampler
-from utils import IGNORE_ID, pad_list
+from audio2score.utils import IGNORE_ID, pad_list
 
 windows = {
     'hamming': np.hamming,

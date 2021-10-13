@@ -7,50 +7,54 @@ from pathlib import Path
 import torch
 from tqdm import tqdm
 
-from data.data_loader import (AudioDataLoader, BucketingSampler,
+from audio2score.data.data_loader import (AudioDataLoader, BucketingSampler,
                               SpectrogramDataset)
-from utils import (LabelDecoder, calculate_cer, calculate_ler, calculate_wer,
+from audio2score.utils import (LabelDecoder, calculate_cer, calculate_ler, calculate_wer,
                    config_logger, load_model)
 
-parser = argparse.ArgumentParser(description='DeepSpeech transcription')
-parser.add_argument('--cuda',
-                    action="store_true",
-                    help='Use cuda to test model')
-parser.add_argument('--model-path',
-                    default='models/model_default.pth',
-                    help='Path to model file created by training')
-parser.add_argument('--test-manifest',
-                    metavar='DIR',
-                    help='path to validation manifest csv',
-                    default='data/test_manifest.csv')
-parser.add_argument('--batch-size',
-                    default=20,
-                    type=int,
-                    help='Batch size for training')
-parser.add_argument('--num-workers',
-                    default=4,
-                    type=int,
-                    help='Number of workers used in dataloading')
-parser.add_argument(
-    '--verbose',
-    action="store_true",
-    help="logger.info out decoded output and error of each sample")
-parser.add_argument('--output-path',
-                    default=None,
-                    type=str,
-                    help="Where to save raw acoustic output")
-args = parser.parse_args()
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser(
+        description='Audio2Score testing',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-m', '--model-path',
+                        default='models/model_default.pth',
+                        help='Path to model file created by training',
+                        required=True)
+    parser.add_argument('-tm', '--test-manifest',
+                        metavar='DIR',
+                        help='path to validation manifest csv',
+                        required=True,
+                        default='data/test_manifest.csv')
+    parser.add_argument('-bs', '--batch-size',
+                        default=20,
+                        type=int,
+                        help='Batch size for training')
+    parser.add_argument('-nw','--num-workers',
+                        default=4,
+                        type=int,
+                        help='Number of workers used in dataloading')
+    parser.add_argument('--no-cuda',
+                        action="store_true",
+                        help='Do not use cuda to test model')
+    parser.add_argument(
+        '--silent',
+        action="store_true",
+        help="Do not log out decoded output and error of each sample")
+    args = parser.parse_args()
+    test(args)
+
+
+def test(args):
     save_folder = os.path.dirname(args.model_path)
     manifest_name = '_'.join([*Path(args.test_manifest).parts[-2:]])
     test_job = f"test_{manifest_name}_{Path(args.model_path).with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{test_job}'
     logger = config_logger('test', log_file=log_file, console_level='ERROR')
-
+   
     torch.set_grad_enabled(False)
     model, _ = load_model(args.model_path)
-    device = torch.device("cuda" if args.cuda else "cpu")
+    device = torch.device("cpu" if args.no_cuda else "cuda")
     label_decoder = LabelDecoder(model.labels)
     model.eval()
     model = model.to(device)
@@ -97,7 +101,7 @@ if __name__ == '__main__':
             total_ler += ler
             num_labels += ref_labels
 
-            if args.verbose:
+            if not args.silent:
                 logger.info(f"File: {filenames[i]}")
                 logger.info(f"WER: {float(wer) / ref_words}")
                 logger.info(f"CER: {float(cer) / ref_chars}")
@@ -128,3 +132,7 @@ if __name__ == '__main__':
         wr.writerow([
             manifest_name, model_id, f'{wer:.3f}', f'{cer:.3f}', f'{ler:.3f}'
         ])
+
+
+if __name__ == '__main__':
+    main()

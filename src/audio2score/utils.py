@@ -92,7 +92,7 @@ def calculate_ler(s1, s2):
 def load_model(path):
     package = torch.load(path, map_location=lambda storage, loc: storage)
     if package['name'] == 'deepspeech':
-        from deepspeech.model import DeepSpeech
+        from audio2score.deepspeech.model import DeepSpeech
         model = DeepSpeech(package['model_conf'], package['audio_conf'],
                            package['labels'])
     else:
