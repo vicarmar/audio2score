@@ -86,12 +86,6 @@ pip install -e .
 ```
 
 # Audio2Score tools:
-
-There exist several ways of using Audio2Score package:
-* Run python scripts from CLI.
-* Run the console scripts installed with the package, similarly to python scripts.
-* Run shell scripts that call any of the previous, but with already set parameters for specific scenarios.
-
 TODO: Complete description here or in docs about the library.
 TODO: Provide scripts that download everything for first data prep stage.
 
