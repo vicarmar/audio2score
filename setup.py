@@ -12,6 +12,7 @@ setup(name='audio2score',
       entry_points={  # Optional
             'console_scripts': [
                   'a2s-train=audio2score.train:main',
+                  'a2s-train-multigpu=audio2score.train:main_multi_gpu',
                   'a2s-test=audio2score.test:main',
                   'a2s-combine-dataset=audio2score.tools.combine_dataset:main',
                   'a2s-showmodel=audio2score.tools.showmodel:main',

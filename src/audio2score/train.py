@@ -4,6 +4,7 @@ import csv
 import json
 import os
 import random
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -19,11 +20,11 @@ from tqdm import tqdm
 from audio2score.data.data_loader import (AudioDataLoader, BucketingSampler,
                               DistributedBucketingSampler, SpectrogramDataset)
 from audio2score.utils import (AverageMeter, LabelDecoder, calculate_cer, calculate_ler,
-                   calculate_wer, config_logger, load_model, save_model)
+                   calculate_wer, config_logger, load_model, save_model, parseIntList)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='DeepSpeech training')
+def create_base_parser():
+    parser = argparse.ArgumentParser(description='Audio2Score training', add_help=False)
     parser.add_argument('--data-dir',
                         metavar='DIR',
                         required=True,
@@ -59,34 +60,96 @@ def main():
                         action='store_true',
                         help='Finetune the model from checkpoint "continue_from"')
 
-    parser.add_argument('--dist-url',
-                        default='tcp://127.0.0.1:1550',
-                        type=str,
-                        help='url used to set up distributed training')
-    parser.add_argument('--dist-backend',
-                        default='nccl',
-                        type=str,
-                        help='distributed backend')
-    parser.add_argument('--world-size',
-                        default=1,
-                        type=int,
-                        help='number of distributed processes')
-    parser.add_argument('--rank',
-                        default=0,
-                        type=int,
-                        help='The rank of this process')
-    parser.add_argument('--gpu-rank',
-                        default=None,
-                        help='If using distributed parallel for multi-gpu, '
-                        'sets the GPU for the process')
     parser.add_argument('--seed', default=45, type=int, help='Seed to generators')
     parser.add_argument('--mixed-precision',
                         action='store_true',
                         help='Uses mixed precision to train a model '
                         '(suggested with volta and above)')
 
+    parser.add_argument('--device-ids',
+                        type=parseIntList,
+                        help='Select the GPU ids to use in multi-GPU',
+                        default=None)
+    parser.add_argument('--dist-url',
+                        default='tcp://127.0.0.1:1550',
+                        type=str,
+                        help='url used to set up distributed training')
+                        # help=argparse.SUPPRESS)
+    parser.add_argument('--dist-backend',
+                        default='nccl',
+                        type=str,
+                        help='Distributed backend')
+                        # help=argparse.SUPPRESS)
+    parser.add_argument('--world-size',
+                        default=1,
+                        type=int,
+                        # help='number of distributed processes',
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--rank',
+                        default=0,
+                        type=int,
+                        # help='The rank of this process',
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--gpu-rank',
+                        default=None,
+                        # help='If using distributed parallel for multi-gpu, '
+                        # 'sets the GPU for the process',
+                        help=argparse.SUPPRESS)
+
+    return parser
+
+
+def main():
+
+    base_parser = create_base_parser()
+    parser = argparse.ArgumentParser(description='Audio2Score training', parents=[base_parser])
+    for dest in ['dist_url', 'dist_backend', 'device_ids']:
+        idx = [a.dest for a in parser._actions].index(dest)
+        parser._actions[idx].help=argparse.SUPPRESS
     args = parser.parse_args()
+
     train(args)
+
+def main_multi_gpu():
+
+    base_parser = create_base_parser()
+    # Multi-GPU
+    parser = argparse.ArgumentParser(description='Audio2Score Multi-GPU training', parents=[base_parser])
+    args = parser.parse_args()
+
+    workers = []
+    args.world_size  = torch.cuda.device_count()
+    device_ids = args.device_ids
+    del args.device_ids
+
+    if device_ids:  # Manually specified GPU IDs
+        args.world_size = len(device_ids)
+
+    for i in range(args.world_size):
+        args.rank = i
+        if device_ids:
+            args.gpu_rank = device_ids[i]
+        else:
+            args.gpu_rank = i
+
+        stdout = None if i == 0 else open("GPU_" + str(i) + ".log", "w")
+        arglist = []
+        for key, value in vars(args).items():
+            if str(value) and  str(value) != 'False' and str(value) != 'None':
+                arglist.append(f"--{key.replace('_', '-')}")
+                if str(value) != 'True':
+                    arglist.append(str(value))
+            
+        p = subprocess.Popen(['a2s-train'] + arglist,
+                        stdout=stdout,
+                        stderr=stdout)
+        workers.append(p)
+
+    for p in workers:
+        p.wait()
+        if p.returncode != 0:
+            raise subprocess.CalledProcessError(returncode=p.returncode,
+                                                cmd=p.args)
 
 
 def train(args):
@@ -98,7 +161,7 @@ def train(args):
         save_folder = './' 
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
     # Logging config.
-    train_job = f"train_{args.model_path.with_suffix('.log').name}"
+    train_job = f"train_{args.rank}_{args.model_path.with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{train_job}'
     logger = config_logger('train', log_file=log_file)
 

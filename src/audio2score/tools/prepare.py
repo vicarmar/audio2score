@@ -16,19 +16,7 @@ from tqdm import tqdm
 
 from audio2score.data.data_loader import load_audio
 from audio2score.data.humdrum import Kern, Labels, LabelsMultiple, LabelsSingle
-from audio2score.utils import config_logger
-
-
-def parseList(string):
-    if string and len(string) > 0:
-        return string.split(',')
-    return None
-
-
-def parseIntList(string):
-    if string and len(string) > 0:
-        return [int(x) for x in string.split(',')]
-    return None
+from audio2score.utils import config_logger, parseList, parseIntList
 
 
 def process_sample(q, samples, args, labels, invalid_counters):

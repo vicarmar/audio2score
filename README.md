@@ -149,22 +149,25 @@ Other optional arguments can be provided. Please run ```a2s-train --help``` for 
 
 You may also check the [configuration file](config/quartets.cfg) for extended training parameters.
 
-<!-- ### Multi-GPU
+### Multi-GPU
 
-Add -m multiproc to the training script as in the following snipet:
+To run a distributed trainig with several GPUs, run `a2s-train-multigpu`. Options are the same as in `a2s-train`, with some extra options to configure the distributed training:
+* `--device-ids` to select the specific GPUs to use. If not provided all available GPUs will be used.
+* `--dist-url`: URL to set up distributed training. By default `tcp://127.0.0.1:1550` is used.
+* `--dist-backend` to select th backend. By default `nccl` is used.
 ```
-python -m multiproc train.py --cuda  # Add your parameters as normal
-``` -->
+a2s-train-multigpu --config-path config/quartets.cfg --data-dir ./datasets/ --data-id tag --model-path ./models/mymodel.pth ...
+```
 
 ### Mixed Precision
-
+Use `--mixed-precision` option. It is not compatible with `--no-cuda` option.
 ```
 as2-train --mixed-precision # Add your parameters as normal
 ```
-<!-- Mixed precision can also be combined with multi-GPU:
+Mixed precision can also be combined with multi-GPU:
 ```
-python -m multiproc train.py --cuda --mixed-precision  # Add your parameters as normal
-``` -->
+as2-train-multigpu --mixed-precision # Add your parameters as normal
+```
 
 ### Checkpoints
 

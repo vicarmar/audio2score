@@ -6,6 +6,18 @@ import torch
 IGNORE_ID = -1
 
 
+def parseList(string):
+    if string and len(string) > 0:
+        return string.split(',')
+    return None
+
+
+def parseIntList(string):
+    if string and len(string) > 0:
+        return [int(x) for x in string.split(',')]
+    return None
+
+
 def config_logger(name,
                   console_level='INFO',
                   log_file=None,
