@@ -14,7 +14,7 @@ TODO: Provide scripts that download everything for first data prep stage.
 
 ## Dataset preparation
 
-For details on the data preparation process, check the documentation in [Installation](docs/DataPreparation.md).
+For details on the data preparation process, check the documentation in [Data preparation](docs/DataPreparation.md).
 
 There exist specific commands for dataset preparation providing default configurations, in order to have homogeneous ouputs.
 * `a2s-prepare-sonatas` or `a2s-prepare`: Sets the instruments to 'piano'.
