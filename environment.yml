@@ -1,0 +1,7 @@
+name: a2s
+channels:
+  - pytorch
+dependencies:
+  - python=3.8
+  - pip:
+    - -r requirements.txt
