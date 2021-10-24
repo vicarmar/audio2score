@@ -142,8 +142,8 @@ class Lookahead(nn.Module):
 
     def __repr__(self):
         return self.__class__.__name__ + '(' \
-               + 'n_features=' + str(self.n_features) \
-               + ', context=' + str(self.context) + ')'
+            + 'n_features=' + str(self.n_features) \
+            + ', context=' + str(self.context) + ')'
 
 
 class DeepSpeech(nn.Module):

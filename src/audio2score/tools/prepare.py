@@ -227,7 +227,7 @@ def main_quartets():
 def main(instruments='piano'):
     # Arguments parsing.
     parser = argparse.ArgumentParser(
-        description='Dataset preparation', 
+        description='Dataset preparation',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--data-dir',
                         metavar='DIR',
@@ -283,7 +283,7 @@ def main(instruments='piano'):
     parser.add_argument('--chunk-sizes',
                         type=parseIntList,
                         help='Select chunk sizes separated by commas',
-                        default=[3,4,5,6])
+                        default=[3, 4, 5, 6])
     parser.add_argument('--test-split',
                         type=float,
                         default=0.3,
@@ -399,6 +399,7 @@ def prepare(args):
         json.dump(labels.labels, jsonfile)
 
     sys.exit(0)
+
 
 if __name__ == '__main__':
     main()

@@ -8,9 +8,9 @@ import torch
 from tqdm import tqdm
 
 from audio2score.data.data_loader import (AudioDataLoader, BucketingSampler,
-                              SpectrogramDataset)
+                                          SpectrogramDataset)
 from audio2score.utils import (LabelDecoder, calculate_cer, calculate_ler, calculate_wer,
-                   config_logger, load_model)
+                               config_logger, load_model)
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
                         default=20,
                         type=int,
                         help='Batch size for training')
-    parser.add_argument('-nw','--num-workers',
+    parser.add_argument('-nw', '--num-workers',
                         default=4,
                         type=int,
                         help='Number of workers used in dataloading')
@@ -48,12 +48,12 @@ def main():
 def test(args):
     save_folder = os.path.dirname(args.model_path)
     if not save_folder:
-        save_folder = './' 
+        save_folder = './'
     manifest_name = '_'.join([*Path(args.test_manifest).parts[-2:]])
     test_job = f"test_{manifest_name}_{Path(args.model_path).with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{test_job}'
     logger = config_logger('test', log_file=log_file, console_level='ERROR')
-   
+
     torch.set_grad_enabled(False)
     model, _ = load_model(args.model_path)
     device = torch.device("cpu" if args.no_cuda else "cuda")
@@ -71,7 +71,6 @@ def test(args):
     test_sampler.shuffle(1)
 
     total_wer, total_cer, total_ler, num_words, num_chars, num_labels = 0, 0, 0, 0, 0, 0
-    output_data = []
 
     for i, (data) in tqdm(enumerate(test_loader),
                           total=len(test_loader),
