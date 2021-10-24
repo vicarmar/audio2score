@@ -173,8 +173,8 @@ def train(args):
     audio_conf = config['audio']
 
     if model_name == "deepspeech":
-        from audio2score.deepspeech.loss import Loss
-        from audio2score.deepspeech.model import DeepSpeech as Model
+        from audio2score.models.deepspeech.loss import Loss
+        from audio2score.models.deepspeech.model import DeepSpeech as Model
     else:
         raise NotImplementedError
 
