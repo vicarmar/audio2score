@@ -14,6 +14,8 @@ TODO: Provide scripts that download everything for first data prep stage.
 
 ## Dataset preparation
 
+You can check the [dataset_preparation.sh](scripts/dataset_preparation.sh) script as reference for a complete dataset preparation, including downloading quartets and sonatas kern data, and prepare them using the default label encoder (`single_ext`) for `unconstrained` polyphony.
+
 For details on the data preparation process, check the documentation in [Data preparation](docs/DataPreparation.md).
 
 There exist specific commands for dataset preparation providing default configurations, in order to have homogeneous ouputs.
