@@ -72,7 +72,7 @@ def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050, dry_run=T
         logger.info(
             f"Combined partition {dataset_partition} total samples: {samples} samples."
         )
-        dataset_samples += samples 
+        dataset_samples += samples
 
         logger.info(f"Duration:\n {combined_csv.groupby('filename')['duration'].sum()/60/60}")
         total_duration = combined_csv['duration'].sum()
@@ -86,10 +86,10 @@ def combine_datasets(data_dir, tag, dataset_config, sample_rate=22050, dry_run=T
             outpath = data_dir / f'{dataset_partition}_{tag}_{dataset_config}.{extension}'
             logger.info(f'Saving to {outpath}')
             combined_csv.drop(['filename', 'duration'],
-                            axis=1).to_csv(outpath,
-                                            index=False,
-                                            header=False,
-                                            encoding='iso-8859-1')
+                              axis=1).to_csv(outpath,
+                                             index=False,
+                                             header=False,
+                                             encoding='iso-8859-1')
 
     logger.info(f'Total dataset duration: {dataset_duration/60/60} hours.')
     logger.info(f'Total dataset samples: {dataset_samples} samples.')

@@ -18,9 +18,9 @@ from apex.parallel import DistributedDataParallel
 from tqdm import tqdm
 
 from audio2score.data.data_loader import (AudioDataLoader, BucketingSampler,
-                              DistributedBucketingSampler, SpectrogramDataset)
+                                          DistributedBucketingSampler, SpectrogramDataset)
 from audio2score.utils import (AverageMeter, LabelDecoder, calculate_cer, calculate_ler,
-                   calculate_wer, config_logger, load_model, save_model, parseIntList)
+                               calculate_wer, config_logger, load_model, save_model, parseIntList)
 
 
 def create_base_parser():
@@ -74,12 +74,10 @@ def create_base_parser():
                         default='tcp://127.0.0.1:1550',
                         type=str,
                         help='url used to set up distributed training')
-                        # help=argparse.SUPPRESS)
     parser.add_argument('--dist-backend',
                         default='nccl',
                         type=str,
                         help='Distributed backend')
-                        # help=argparse.SUPPRESS)
     parser.add_argument('--world-size',
                         default=1,
                         type=int,
@@ -105,20 +103,22 @@ def main():
     parser = argparse.ArgumentParser(description='Audio2Score training', parents=[base_parser])
     for dest in ['dist_url', 'dist_backend', 'device_ids']:
         idx = [a.dest for a in parser._actions].index(dest)
-        parser._actions[idx].help=argparse.SUPPRESS
+        parser._actions[idx].help = argparse.SUPPRESS
     args = parser.parse_args()
 
     train(args)
+
 
 def main_multi_gpu():
 
     base_parser = create_base_parser()
     # Multi-GPU
-    parser = argparse.ArgumentParser(description='Audio2Score Multi-GPU training', parents=[base_parser])
+    parser = argparse.ArgumentParser(
+        description='Audio2Score Multi-GPU training', parents=[base_parser])
     args = parser.parse_args()
 
     workers = []
-    args.world_size  = torch.cuda.device_count()
+    args.world_size = torch.cuda.device_count()
     device_ids = args.device_ids
     del args.device_ids
 
@@ -135,14 +135,14 @@ def main_multi_gpu():
         stdout = None if i == 0 else open("GPU_" + str(i) + ".log", "w")
         arglist = []
         for key, value in vars(args).items():
-            if str(value) and  str(value) != 'False' and str(value) != 'None':
+            if str(value) and str(value) != 'False' and str(value) != 'None':
                 arglist.append(f"--{key.replace('_', '-')}")
                 if str(value) != 'True':
                     arglist.append(str(value))
-            
+
         p = subprocess.Popen(['a2s-train'] + arglist,
-                        stdout=stdout,
-                        stderr=stdout)
+                             stdout=stdout,
+                             stderr=stdout)
         workers.append(p)
 
     for p in workers:
@@ -158,7 +158,7 @@ def train(args):
     args.model_path = Path(args.model_path).with_suffix('.pth')
     save_folder = os.path.dirname(args.model_path)
     if not save_folder:
-        save_folder = './' 
+        save_folder = './'
     os.makedirs(save_folder, exist_ok=True)  # Ensure save folder exists
     # Logging config.
     train_job = f"train_{args.rank}_{args.model_path.with_suffix('.log').name}"
@@ -398,7 +398,9 @@ def train(args):
         # Train epoch logging.
         epoch_time = time.time() - start_epoch_time
         logger.info(
-            f'Training Summary Epoch: [{epoch + 1}]\tTime taken (s): {epoch_time:.0f}\tAverage Loss {train_loss:.3f}\t'
+            f'Training Summary Epoch: [{epoch + 1}]\t'
+            f'Time taken (s): {epoch_time:.0f}\t'
+            f'Average Loss {train_loss:.3f}\t'
         )
 
         # Validation evaluation.

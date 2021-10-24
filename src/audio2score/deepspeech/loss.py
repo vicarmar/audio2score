@@ -3,6 +3,7 @@ import torch
 
 class Loss(object):
     """A simple wrapper class for loss calculation"""
+
     def __init__(self, model, device):
         self.model = model
         self.device = device

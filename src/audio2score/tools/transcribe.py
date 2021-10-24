@@ -42,5 +42,6 @@ def main():
 
     transcribe(args.model_path, args.audio_path, args.cuda)
 
+
 if __name__ == '__main__':
     main()
