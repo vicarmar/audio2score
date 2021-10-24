@@ -52,7 +52,7 @@ class AudioParser(object):
 class NoiseInjection(object):
     def __init__(self, path=None, sample_rate=16000, noise_levels=(0, 0.5)):
         """
-        Adds noise to an input signal with specific SNR. Higher the noise level, the more noise added.
+        Adds noise to input signal with specific SNR. Higher the noise level, the more noise added.
         Modified code from https://github.com/willfrey/audio/blob/master/torchaudio/transforms.py
         """
         if not os.path.exists(path):
@@ -85,8 +85,8 @@ class SpectrogramParser(AudioParser):
     def __init__(self, audio_conf):
         """
         Parses audio file into spectrogram with optional normalization and various augmentations
-        :param audio_conf: Dictionary containing the sample rate, window and the window length/stride in seconds
-        :param normalize(default False):  Apply standard mean and deviation normalization to audio tensor
+        :param audio_conf: Dict containing sample rate, window and window length/stride in seconds
+        :param normalize(default False):  Apply std mean and deviation normalization to audio tensor
         :param augment(default False):  Apply random tempo and gain perturbations
         """
         super(SpectrogramParser, self).__init__()
@@ -174,13 +174,13 @@ class SpectrogramParser(AudioParser):
 class SpectrogramDataset(Dataset, SpectrogramParser):
     def __init__(self, audio_conf, manifest_filepath, labels):
         """
-        Dataset that loads tensors via a csv containing file paths to audio files and transcripts separated by
-        a comma. Each new line is a different sample. Example below:
-
-        /path/to/audio.wav,/path/to/audio.txt
+        Dataset that loads tensors via a csv containing file paths to audio files
+        and transcripts separated by a comma. Each new line is a different sample.
+        Example:
+            /path/to/audio.wav,/path/to/audio.txt
         ...
 
-        :param audio_conf: Dictionary containing the sample rate, window and the window length/stride in seconds
+        :param audio_conf: Dict containing sample rate, window and window length/stride in seconds
         :param manifest_filepath: Path to manifest csv as describe above
         :param labels: String containing all the possible characters to map to
         :param normalize: Apply standard mean and deviation normalization to audio tensor
@@ -241,7 +241,7 @@ class AudioDataLoader(DataLoader):
 class BucketingSampler(Sampler):
     def __init__(self, data_source, batch_size=1):
         """
-        Samples batches assuming they are in order of size to batch similarly sized samples together.
+        Sample batches assuming they are in order of size to batch similarly sized samples together.
         """
         super(BucketingSampler, self).__init__(data_source)
         self.data_source = data_source
@@ -268,7 +268,7 @@ class DistributedBucketingSampler(Sampler):
                  num_replicas=None,
                  rank=None):
         """
-        Samples batches assuming they are in order of size to batch similarly sized samples together.
+        Sample batches assuming they are in order of size to batch similarly sized samples together.
         """
         super(DistributedBucketingSampler, self).__init__(data_source)
         if num_replicas is None:

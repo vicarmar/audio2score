@@ -33,6 +33,7 @@ classic_tempos = {
 
 class Labels(object):  # 38 symbols
     def __init__(self):
+        # autopep8: off
         # yapf: disable
         self.labels = [
             "+",  # ctc blank
@@ -42,6 +43,7 @@ class Labels(object):  # 38 symbols
             "<", ">"  # seq2seq <sos> and <eos> delimiters
         ]
         # yapf: enable
+        # autopep8: on
         self.labels_map = dict([(c, i) for (i, c) in enumerate(self.labels)])
         self.labels_map_inv = dict([(i, c)
                                     for (i, c) in enumerate(self.labels)])
@@ -64,6 +66,7 @@ class Labels(object):  # 38 symbols
 class LabelsMultiple(object):  # 148/173 symbols
     def __init__(self, extended=False):
         # yapf: disable
+        # autopep8: off
         self.labels = [
             "+",  # ctc blank
             "1","1.","2","2.","4","4.","8","8.","16","16.","32","32.","64","64.","3","6","12","24","48","96",                           # noqa E501 E231
@@ -85,6 +88,7 @@ class LabelsMultiple(object):  # 148/173 symbols
                 "FFF#","GGG-","GGG","GGG#","AAA-","AAA","AAA#","BBB-","BBB","CC-"           # noqa E501 E231
             ])
         # yapf: enable
+        # autopep8: on
         self.labels_map = dict([(c, i) for (i, c) in enumerate(self.labels)])
         self.labels_map_inv = dict([(i, c)
                                     for (i, c) in enumerate(self.labels)])
@@ -124,6 +128,7 @@ class LabelsMultiple(object):  # 148/173 symbols
 class LabelsSingle(object):  # 9147/13632 symbols
     def __init__(self, extended=False):
         # yapf: disable
+        # autopep8: off
         durations = ["1","1.","2","2.","4","4.","8","8.","16","16.","32","32.","64","64.","3","6","12","24","48","96"]                          # noqa E501 E231
         notes = ["BBB#","CC","CC#","DD-","DD","DD#","EE-","EE","EE#","FF-","FF","FF#","GG-","GG","GG#","AA-","AA","AA#","BB-","BB","BB#",       # noqa E501 E231
             "C-","C","C#","D-","D","D#","E-","E","E#","F-","F","F#","G-","G","G#","A-","A","A#","B-","B","B#",                                  # noqa E501 E231
@@ -139,6 +144,7 @@ class LabelsSingle(object):  # 9147/13632 symbols
                 "CCC","CCC#","DDD-","DDD","DDD#","EEE-","EEE","EEE#","FFF-","FFF","FFF#",       # noqa E501 E231
                 "GGG-","GGG","GGG#","AAA-","AAA","AAA#","BBB-","BBB","CC-", "ffff-","ffff"])    # noqa E501 E231
         # yapf: enable
+        # autopep8: on
         # ties = ["[", "_", "]"]
         self.labels = ['+']  # ctc blank
         for d in durations:
