@@ -49,7 +49,7 @@ def show_model(model_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='DeepSpeech model information')
+    parser = argparse.ArgumentParser(description='Show model information')
     parser.add_argument('model_path',
                         metavar='FILE',
                         help='Path to model created by training')

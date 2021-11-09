@@ -104,12 +104,13 @@ def calculate_ler(s1, s2):
 def load_model(path):
     package = torch.load(path, map_location=lambda storage, loc: storage)
     if package['name'] == 'deepspeech':
-        from audio2score.models.deepspeech.model import DeepSpeech
-        model = DeepSpeech(package['model_conf'], package['audio_conf'],
-                           package['labels'])
+        from audio2score.models.deepspeech.model import DeepSpeech as Model
+    elif package['name'] == 'speechtransformer':
+        from audio2score.models.speechtransformer.model import SpeechTransformer as Model
     else:
         raise NotImplementedError
 
+    model = Model(package['model_conf'], package['audio_conf'], package['labels'])
     model.load_state_dict(package['state_dict'])
     return model, package
 
