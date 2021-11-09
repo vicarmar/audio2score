@@ -10,7 +10,7 @@ Check the installation documentation in [Installation](docs/Installation.md).
 
 # Audio2Score tools:
 TODO: Complete description here or in docs about the library.
-TODO: Provide scripts that download everything for first data prep stage.
+
 
 ## Dataset preparation
 

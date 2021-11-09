@@ -19,38 +19,6 @@ windows = {
 }
 
 
-class SequenceWise(nn.Module):
-    def __init__(self, module):
-        """
-        Collapses input of dim T*N*H to (T*N)*H, and applies to a module.
-        Allows handling of variable sequence lengths and minibatch sizes.
-        :param module: Module to apply input to.
-        """
-        super(SequenceWise, self).__init__()
-        self.module = module
-
-    def forward(self, x):
-        t, n = x.size(0), x.size(1)
-        x = x.view(t * n, -1)
-        x = self.module(x)
-        x = x.view(t, n, -1)
-        return x
-
-    def __repr__(self):
-        tmpstr = self.__class__.__name__ + ' (\n'
-        tmpstr += self.module.__repr__()
-        tmpstr += ')'
-        return tmpstr
-
-
-class InferenceBatchSoftmax(nn.Module):
-    def forward(self, input_):
-        if not self.training:
-            return F.log_softmax(input_, dim=-1)
-        else:
-            return input_
-
-
 class BatchRNN(nn.Module):
     def __init__(self,
                  input_size,
@@ -62,7 +30,7 @@ class BatchRNN(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.bidirectional = bidirectional
-        self.batch_norm = SequenceWise(
+        self.batch_norm = common.SequenceWise(
             nn.BatchNorm1d(input_size)) if batch_norm else None
         self.rnn = rnn_type(input_size=input_size,
                             hidden_size=hidden_size,
@@ -87,7 +55,8 @@ class BatchRNN(nn.Module):
 
 
 class Lookahead(nn.Module):
-    # Wang et al 2016 - Lookahead Convolution Layer for Unidirectional Recurrent Neural Networks
+    # Wang et al 2016 - Lookahead Convolution Layer for Unidirectional
+    # Recurrent Neural Networks
     # input shape - sequence, batch, feature - TxNxH
     # output shape - same as input
     def __init__(self, n_features, context):
@@ -201,7 +170,8 @@ class DeepSpeech(nn.Module):
                     nn.Dropout(dropout),
                 ))
 
-        # Based on above convolutions and spectrogram size using conv formula (W - F + 2P)/ S+1
+        # Based on above convolutions and spectrogram size using conv formula
+        # (W - F + 2P)/ S+1
         rnn_input_size = int(
             math.floor(rnn_input_size - cnn_kernel_sizes[0][0] +
                        2 * cnn_paddings[0][0]) / cnn_strides[0][0] + 1)
@@ -239,8 +209,8 @@ class DeepSpeech(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_size, num_classes, bias=False),
         )
-        self.fc = nn.Sequential(SequenceWise(fully_connected), )
-        self.inference_softmax = InferenceBatchSoftmax()
+        self.fc = nn.Sequential(common.SequenceWise(fully_connected), )
+        self.inference_softmax = common.InferenceBatchSoftmax()
 
     def forward(self, x, x_lengths):
         output_lengths = self.get_seq_lens(x_lengths)
@@ -274,8 +244,8 @@ class DeepSpeech(nn.Module):
 
     def get_seq_lens(self, input_length):
         """
-        Given a 1D Tensor or Variable containing integer sequence lengths, return a 1D tensor or variable
-        containing the size sequences that will be output by the network.
+        Given a 1D Tensor or Variable containing integer sequence lengths, return a 1D tensor or
+        variable containing the size sequences that will be output by the network.
         :param input_length: 1D Tensor
         :return: 1D Tensor scaled by model
         """

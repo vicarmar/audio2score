@@ -163,7 +163,7 @@ def train(args):
     # Logging config.
     train_job = f"train_{args.rank}_{args.model_path.with_suffix('.log').name}"
     log_file = f'{save_folder}/{datetime.now().strftime("%Y%m%d-%H%M%S")}_{train_job}'
-    logger = config_logger('train', log_file=log_file)
+    logger = config_logger('train', log_file=log_file, console_level='DEBUG', file_level='DEBUG')
 
     # Main execution.
     # Get train config.
@@ -175,6 +175,9 @@ def train(args):
     if model_name == "deepspeech":
         from audio2score.models.deepspeech.loss import Loss
         from audio2score.models.deepspeech.model import DeepSpeech as Model
+    elif model_name == "speechtransformer":
+        from audio2score.models.speechtransformer.loss import Loss
+        from audio2score.models.speechtransformer.model import SpeechTransformer as Model
     else:
         raise NotImplementedError
 
