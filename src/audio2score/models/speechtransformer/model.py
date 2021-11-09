@@ -1,4 +1,5 @@
 import math
+import traceback
 
 import torch
 import torch.nn as nn
@@ -215,7 +216,7 @@ class SpeechTransformer(nn.Module):
         # Create masks:
         tgt_pad_mask = self.get_pad_mask(tgt_in, tgt_out_lengths)  # BxT'
         tgt_subsequent_mask = self.transformer.generate_square_subsequent_mask(
-            tgt_in.shape[1])  # T'xT'
+            tgt_in.shape[1]).to(tgt_in.device)  # T'xT'
 
         tgt_in = self.dec_embedding(tgt_in) * self.sqrt_dim  # BxT'xd_model
         tgt_in = self.dec_positional_encoding(tgt_in)
@@ -231,7 +232,7 @@ class SpeechTransformer(nn.Module):
                 src=x, mask=None, src_key_padding_mask=src_pad_mask)  # TxBxd_model
         except Exception as error:
             self.logger.error("SpeechTranformer encode error")
-            self.logger.error(error)
+            self.logger.error(traceback.format_exc())
             raise error
         return memory, src_pad_mask
 
@@ -251,7 +252,7 @@ class SpeechTransformer(nn.Module):
             output = self.inference_softmax(output)
         except Exception as error:
             self.logger.error("SpeechTranformer decode error")
-            self.logger.error(error)
+            self.logger.error(traceback.format_exc())   
             raise error
         return output, tgt_out, tgt_out_lengths
 
