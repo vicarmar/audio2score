@@ -211,19 +211,19 @@ class SpeechTransformer(nn.Module):
     def encode_targets(self, tgt, tgt_lengths):
         # Target processing: tgt=BxT'
         # Add SOS and EOS to target:
-        tgt_in, tgt_out, tgt_out_lengths = self.process_tgt(tgt, tgt_lengths)
+        tgt, tgt_out, tgt_lengths = self.process_tgt(tgt, tgt_lengths)
 
         # Create masks:
-        tgt_pad_mask = self.get_pad_mask(tgt_in, tgt_out_lengths)  # BxT'
+        tgt_pad_mask = self.get_pad_mask(tgt, tgt_lengths)  # BxT'
         tgt_subsequent_mask = self.transformer.generate_square_subsequent_mask(
-            tgt_in.shape[1]).to(tgt_in.device)  # T'xT'
+            tgt.shape[1]).to(tgt.device)  # T'xT'
 
-        tgt_in = self.dec_embedding(tgt_in) * self.sqrt_dim  # BxT'xd_model
-        tgt_in = self.dec_positional_encoding(tgt_in)
+        tgt = self.dec_embedding(tgt) * self.sqrt_dim  # BxT'xd_model
+        tgt = self.dec_positional_encoding(tgt)
         # Transformer decoder needs a shape (T'xBxd_model)
-        tgt_in = tgt_in.transpose(0, 1).contiguous()
+        tgt = tgt.transpose(0, 1).contiguous()
 
-        return tgt_in, tgt_out, tgt_out_lengths, tgt_pad_mask, tgt_subsequent_mask
+        return tgt, tgt_out, tgt_lengths, tgt_pad_mask, tgt_subsequent_mask
 
     def encode(self, x, x_lengths):
         try:
@@ -238,9 +238,9 @@ class SpeechTransformer(nn.Module):
 
     def decode(self, memory, src_pad_mask, tgt, tgt_lengths):
         try:
-            tgt_in, tgt_out, tgt_out_lengths, tgt_pad_mask, tgt_subsequent_mask = \
+            tgt, tgt_out, tgt_lengths, tgt_pad_mask, tgt_subsequent_mask = \
                 self.encode_targets(tgt, tgt_lengths)
-            output = self.transformer.decoder(tgt=tgt_in,
+            output = self.transformer.decoder(tgt=tgt,
                                               memory=memory,
                                               tgt_mask=tgt_subsequent_mask,
                                               memory_mask=None,
@@ -254,7 +254,7 @@ class SpeechTransformer(nn.Module):
             self.logger.error("SpeechTranformer decode error")
             self.logger.error(traceback.format_exc())   
             raise error
-        return output, tgt_out, tgt_out_lengths
+        return output, tgt_out, tgt_lengths
 
     def forward(self, x, x_lengths, tgt, tgt_lengths):
         memory, src_pad_mask = self.encode(x, x_lengths)
@@ -273,20 +273,19 @@ class SpeechTransformer(nn.Module):
         return mask
 
     def process_tgt(self, tgt, tgt_lengths):
-        y = tgt.clone()
-        y[y == IGNORE_ID] = self.eos_id
+        tgt[tgt == IGNORE_ID] = self.eos_id
 
-        sos = y.new([self.sos_id] * y.shape[0])
-        y_in = torch.cat([sos.unsqueeze(1), y], dim=-1)
-        eos = y.new([self.eos_id] * y.shape[0])
-        y_out = torch.cat([y, eos.unsqueeze(1)], dim=-1)
+        sos = tgt.new([self.sos_id] * tgt.shape[0])
+        y_in = torch.cat([sos.unsqueeze(1), tgt], dim=-1)
+        eos = tgt.new([self.eos_id] * tgt.shape[0])
+        y_out = torch.cat([tgt, eos.unsqueeze(1)], dim=-1)
 
-        y_out_lengths = tgt_lengths + 1
-        mask = self.get_pad_mask(y_out, y_out_lengths)
+        tgt_lengths = tgt_lengths + 1
+        mask = self.get_pad_mask(y_out, tgt_lengths)
         y_out = y_out.masked_fill(mask, IGNORE_ID)
 
         assert y_in.size() == y_out.size()
-        return y_in, y_out, y_out_lengths
+        return y_in, y_out, tgt_lengths
 
     def transcribe(self, inputs, input_sizes, beam_size=1):
         batch_size = inputs.shape[0]
@@ -298,10 +297,10 @@ class SpeechTransformer(nn.Module):
             raise NotImplementedError
         else:
             # Greedy decoder
-            tgt = torch.empty((batch_size, 0), dtype=torch.int32)
-            tgt_lengths = torch.zeros((batch_size, 1), dtype=torch.int32)
+            tgt = torch.empty((batch_size, 0), dtype=torch.int32, device=inputs.device)
+            tgt_lengths = torch.zeros((batch_size, 1), dtype=torch.int32, device=inputs.device)
             for i in range(max_len):
-                output, tgt_out, tgt_lengths = self.decode(memory, src_pad_mask, tgt, tgt_lengths)
+                output, _, tgt_lengths = self.decode(memory, src_pad_mask, tgt, tgt_lengths)
                 _, next_word = torch.max(output, dim=2)
                 next_word = next_word.data[:, -1]
                 tgt = torch.cat([tgt, next_word.unsqueeze(1)], dim=1)
